@@ -25,9 +25,14 @@ publishes `rt/lowcmd`. No balance, torque, or position loop crosses the tunnel.
   The wrapper then runs `robot normal` and requires a successful `robot status`.
 - Never use `kill -9`; it cannot run the damping handler.
 
-The facility's admin killswitch remains the independent final authority. If the
+The facility's admin killswitch remains the independent final authority. It can
+fire at any time without warning; the robot goes slack and this controller loses
+it mid-motion. Nothing here depends on finishing a motion, and the damping write
+still completes against a robot that is already off — keep it that way. If the
 robot is stuck, straining, noisy, faulted, caught in the harness, moving without
 a live camera, or loses SSH while moving, stop and contact the admin immediately.
+Escalate the moment you are unsure. A false alarm costs a message; the
+alternative costs a humanoid.
 
 ## Simple session: run these scripts in order
 
@@ -77,6 +82,15 @@ On later sessions, use `git pull --ff-only` instead of cloning. Setup creates
 only your named conda environment with Python 3.10 and
 `cyclonedds==0.10.2`. It verifies the exact CycloneDDS version and imports the
 facility-provided `unitree_sdk2py`; it never installs into system Python.
+
+Python 3.10 matches the system, so the cached wheel installs in seconds instead
+of compiling. Setup requires `CYCLONEDDS_HOME` to be set (the facility sets it)
+so pip cannot silently fall back to that source build, exports
+`PYTHONNOUSERSITE=1` and installs with `--no-user` so nothing can land in
+`~/.local` where `conda env remove` would not reach it, and then confirms
+`cyclonedds` resolves inside your own prefix. `jetson_preflight.sh` and
+`run_onboard_session.sh` re-check that last property, so a session cannot start
+from a polluted system Python.
 
 Preparation creates private, ignored `runtime/hardware.json` from the complete
 checked-in commissioning profile. There are no `null` values. This records your

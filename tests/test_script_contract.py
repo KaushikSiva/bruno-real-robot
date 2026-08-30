@@ -39,9 +39,20 @@ def fake_jetson_commands(tmp_path: Path, *, utc_hour: str) -> tuple[dict[str, st
         'if [[ "$*" == *"+%H"* ]]; then echo "${FAKE_UTC_HOUR}"; '
         'else echo "2026-01-01 ${FAKE_UTC_HOUR}:00 UTC"; fi\n',
     )
+    # The real helper prints its mode on `robot status`, and dev-mode/normal change
+    # it. Model that: scripts verify developer mode by reading this output.
     executable(
         binary_dir / "robot",
-        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >>"${FAKE_ROBOT_LOG}"\n',
+        "#!/usr/bin/env bash\n"
+        'printf "%s\\n" "$*" >>"${FAKE_ROBOT_LOG}"\n'
+        'case "$1" in\n'
+        '  dev-mode) printf "developer\\n" >"${FAKE_ROBOT_MODE}" ;;\n'
+        '  normal) printf "normal\\n" >"${FAKE_ROBOT_MODE}" ;;\n'
+        "  status)\n"
+        '    mode="normal"\n'
+        '    [[ -s "${FAKE_ROBOT_MODE}" ]] && mode="$(<"${FAKE_ROBOT_MODE}")"\n'
+        '    printf "Robot mode: %s\\n" "${mode}" ;;\n'
+        "esac\n",
     )
     environment = os.environ.copy()
     environment.update(
@@ -51,6 +62,7 @@ def fake_jetson_commands(tmp_path: Path, *, utc_hour: str) -> tuple[dict[str, st
             "CONDA_DEFAULT_ENV": "operator-g1",
             "FAKE_UTC_HOUR": utc_hour,
             "FAKE_ROBOT_LOG": str(robot_log),
+            "FAKE_ROBOT_MODE": str(tmp_path / "robot_mode"),
         }
     )
     return environment, robot_log
@@ -103,19 +115,43 @@ def test_session_and_cleanup_require_normal_mode_status_and_disposable_env() -> 
     assert cleanup.index("robot normal") < cleanup.index("conda env remove")
 
 
+# Reading these to confirm nothing was left behind is required; creating or editing
+# an entry is what must never happen. Any mention must be one of these exact forms.
+READ_ONLY_PERSISTENCE_CALLS = (
+    "command -v crontab",
+    "crontab -l",
+    "command -v systemctl",
+    "systemctl --user list-unit-files",
+)
+
+
 def test_scripts_do_not_offer_network_or_persistent_service_changes() -> None:
     combined = "\n".join(script(name) for name in REQUIRED_SCRIPTS)
     prohibited = (
         "--network-interface",
         "netplan",
-        "systemctl",
+        "systemctl enable",
+        "systemctl start",
+        "systemctl --user enable",
         "tailscale up",
         "reboot",
         "shutdown -h",
-        "crontab",
+        "crontab -e",
+        "crontab -r",
     )
     for command in prohibited:
         assert command not in combined
+
+    # Belt and braces: every crontab/systemctl mention is a read-only inspection.
+    for line in combined.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        for tool in ("crontab", "systemctl"):
+            if tool in stripped:
+                assert any(call in stripped for call in READ_ONLY_PERSISTENCE_CALLS), (
+                    f"non-read-only {tool} usage: {stripped}"
+                )
 
 
 def test_preflight_happy_path_calls_robot_commands_in_safe_order(tmp_path: Path) -> None:
@@ -173,3 +209,58 @@ def test_session_validation_failure_after_preflight_restores_normal(tmp_path: Pa
     assert result.returncode == 2
     assert "outside staffed hours" in result.stderr
     assert robot_log.read_text(encoding="utf-8").splitlines() == ["normal", "status"]
+
+
+def test_session_refuses_to_launch_while_built_in_service_owns_the_robot(
+    tmp_path: Path,
+) -> None:
+    """Commanding lowcmd against the running motion service makes the robot vibrate.
+
+    The operator's --developer-mode-confirmed flag is only an assertion, so the
+    wrapper must read `robot status` at launch time and refuse on a mismatch.
+    """
+
+    environment, robot_log = fake_jetson_commands(tmp_path, utc_hour="03")
+    copied_project = tmp_path / "project"
+    copied_scripts = copied_project / "scripts"
+    copied_scripts.mkdir(parents=True)
+    shutil.copy2(SCRIPTS / "run_onboard_session.sh", copied_scripts)
+    # Mode file absent => `robot status` reports normal, i.e. no developer mode.
+
+    result = subprocess.run(
+        [str(copied_scripts / "run_onboard_session.sh")],
+        input="",
+        text=True,
+        capture_output=True,
+        env=environment,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "developer mode is not confirmed" in result.stderr
+    assert "VIBRATE VIOLENTLY" in result.stderr
+    # It must refuse before starting the controller, and still restore normal mode.
+    assert "Onboard controller PID" not in result.stderr
+    assert robot_log.read_text(encoding="utf-8").splitlines()[-2:] == ["normal", "status"]
+
+
+def test_session_launches_once_developer_mode_is_reported(tmp_path: Path) -> None:
+    environment, robot_log = fake_jetson_commands(tmp_path, utc_hour="03")
+    Path(environment["FAKE_ROBOT_MODE"]).write_text("developer\n", encoding="utf-8")
+    copied_project = tmp_path / "project"
+    copied_scripts = copied_project / "scripts"
+    copied_scripts.mkdir(parents=True)
+    shutil.copy2(SCRIPTS / "run_onboard_session.sh", copied_scripts)
+
+    result = subprocess.run(
+        [str(copied_scripts / "run_onboard_session.sh")],
+        input="",
+        text=True,
+        capture_output=True,
+        env=environment,
+        check=False,
+    )
+
+    assert "developer mode is not confirmed" not in result.stderr
+    assert "Onboard controller PID" in result.stderr
+    del robot_log

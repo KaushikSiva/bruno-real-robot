@@ -258,7 +258,9 @@ def test_calibration_reports_axes_that_only_move_to_one_side(
     monkeypatch.setattr("summit_signal.joystick.time.monotonic", clock.monotonic)
     monkeypatch.setattr("summit_signal.joystick.time.sleep", clock.sleep)
 
-    with pytest.raises(RuntimeError, match=r"axes did not move to both sides.*axis 0.*axis 1.*axis 3"):
+    with pytest.raises(
+        RuntimeError, match=r"axes did not move to both sides.*axis 0.*axis 1.*axis 3"
+    ):
         capture_calibration(
             config(),
             tmp_path / "calibration.json",

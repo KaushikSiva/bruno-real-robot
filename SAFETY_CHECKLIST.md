@@ -1,5 +1,9 @@
 # Summit Signal safety checklist
 
+Escalate the moment you are unsure — a false alarm costs a message, the
+alternative costs a humanoid. The admin's killswitch can fire at any time
+without warning; expect the robot to go slack and settle into the harness.
+
 Stop at the first unchecked item. The robot administrator has final authority.
 
 ## Before connecting
@@ -50,5 +54,12 @@ Stop at the first unchecked item. The robot administrator has final authority.
       `ALL-29 DAMPING SHUTDOWN COMPLETE`.
 - [ ] Confirm the final physical state through the live camera.
 - [ ] Confirm the wrapper ran `robot normal` and check `robot status`.
+- [ ] The robot is left damped and resting in the harness, not holding a stance.
 - [ ] Confirm no controller process remains and remove copied data/configuration.
-- [ ] Remove the personal conda environment before ending the session.
+- [ ] Run `./scripts/jetson_cleanup.sh YOURNAME-g1` and see `JETSON CLEANUP COMPLETE`;
+      nothing installed this session may outlive it.
+- [ ] Delete recordings and scratch data you do not need. The Orin's disk is small
+      and shared.
+- [ ] No user cron entry, user unit, or autostart entry survives a power cycle;
+      cleanup reports `JETSON CLEANUP INCOMPLETE` if it finds one.
+- [ ] Tell the admin about anything that felt off, even if it resolved itself.

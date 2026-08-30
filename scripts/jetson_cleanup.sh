@@ -44,5 +44,58 @@ conda env remove -n "${environment_name}" -y
 rm -f -- "${project_root}/runtime/hardware.json" "${pid_file}"
 rmdir "${project_root}/runtime" 2>/dev/null || true
 
-echo "JETSON CLEANUP COMPLETE: ${environment_name} and session runtime files were removed."
+# Nothing may survive a power cycle. These scripts never create such entries, so a hit
+# here means something else did and the next operator inherits it. Inspection only:
+# no entry is created or modified by this sweep.
+persistence_found=false
+note_persistence() {
+  persistence_found=true
+  echo "WARNING: possible persistent entry -> $*" >&2
+}
+
+if command -v crontab >/dev/null; then
+  while IFS= read -r entry; do
+    [[ -n "${entry}" ]] && note_persistence "user cron: ${entry}"
+  done < <(crontab -l 2>/dev/null | grep -viE '^[[:space:]]*#' |
+    grep -iE 'summit[_-]signal|bruno-real-robot' || true)
+fi
+
+if command -v systemctl >/dev/null; then
+  while IFS= read -r entry; do
+    [[ -n "${entry}" ]] && note_persistence "user unit: ${entry}"
+  done < <(systemctl --user list-unit-files --no-legend --no-pager 2>/dev/null |
+    grep -iE 'summit[_-]signal|bruno' || true)
+fi
+
+for autostart_entry in "${HOME}/.config/autostart"/*.desktop; do
+  [[ -e "${autostart_entry}" ]] || continue
+  if grep -qiE 'summit[_-]signal|bruno-real-robot' "${autostart_entry}" 2>/dev/null; then
+    note_persistence "autostart: ${autostart_entry}"
+  fi
+done
+
+if compgen -G "${HOME}/.local/lib/python3.10/site-packages/cyclonedds*" >/dev/null; then
+  note_persistence "cyclonedds in ~/.local/lib/python3.10/site-packages"
+fi
+
+# The Orin's disk is small and shared, so name what is still taking space.
+if [[ -d "${project_root}/runtime" ]]; then
+  echo
+  echo "Session data still in ${project_root}/runtime ($(du -sh -- "${project_root}/runtime" 2>/dev/null | cut -f1)):"
+  ls -lAh -- "${project_root}/runtime" || true
+  echo "Delete any recordings you do not need; the Orin's disk is small and shared."
+fi
+
+if [[ "${persistence_found}" == "true" ]]; then
+  echo
+  echo "JETSON CLEANUP INCOMPLETE: ${environment_name} was removed, but the entries above"
+  echo "would outlive this session. Remove them, or tell the admin."
+else
+  echo "JETSON CLEANUP COMPLETE: ${environment_name} and session runtime files were removed."
+  echo "Nothing references this session in user cron, user units, or autostart."
+fi
 echo "Delete the checkout too if the facility asks; no services or autostart entries were created."
+echo
+echo "Last step: tell the admin about anything that felt off this session - an unexpected"
+echo "noise, a fault, a stall, a vibration, a dropped connection - even if it resolved"
+echo "itself. The next person is trusting you."

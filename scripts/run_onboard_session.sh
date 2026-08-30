@@ -23,6 +23,32 @@ fi
 
 command -v robot >/dev/null || fail "the facility robot helper is unavailable"
 
+# --- developer-mode verification -------------------------------------------------
+# Sending rt/lowcmd while the built-in motion service still owns the joints makes the
+# two controllers fight over every joint and the robot vibrates violently. Ask the
+# robot rather than trusting a flag typed once on the operator's command line.
+# Override the match if the facility's `robot status` wording differs:
+#   export SUMMIT_SIGNAL_DEV_MODE_PATTERN='exact text shown in developer mode'
+dev_mode_pattern="${SUMMIT_SIGNAL_DEV_MODE_PATTERN:-dev[-_ ]?mode|developer}"
+
+verify_developer_mode() {
+  local status_output
+  # </dev/null so this can never consume the operator goal stream on stdin.
+  if ! status_output="$(robot status 2>&1 </dev/null)"; then
+    fail "'robot status' failed; cannot confirm developer mode"
+  fi
+  echo "robot status:" >&2
+  printf '%s\n' "${status_output}" >&2
+  if ! printf '%s' "${status_output}" | grep -Eiq -- "${dev_mode_pattern}"; then
+    echo "The status above does not match /${dev_mode_pattern}/i." >&2
+    echo "If the built-in motion service still owns the robot, starting the" >&2
+    echo "controller now would make the robot VIBRATE VIOLENTLY." >&2
+    echo "Run ./scripts/jetson_preflight.sh, or if this wording is what your" >&2
+    echo "facility prints in developer mode, set SUMMIT_SIGNAL_DEV_MODE_PATTERN." >&2
+    fail "developer mode is not confirmed by 'robot status'"
+  fi
+}
+
 restore_normal() {
   local session_status=$?
   trap - EXIT INT TERM HUP
@@ -48,6 +74,10 @@ if [[ "${CONDA_DEFAULT_ENV}" == "base" ]]; then
 fi
 export PYTHONPATH="${project_root}/src${PYTHONPATH:+:${PYTHONPATH}}"
 python -m summit_signal.sdk_probe || fail "the disposable SDK environment is incompatible"
+# cyclonedds must live in this disposable prefix; anywhere else means the shared
+# system or user Python was modified and the change would outlive the session.
+python -c 'import sys, cyclonedds; raise SystemExit(0 if cyclonedds.__file__.startswith(sys.prefix) else 2)' ||
+  fail "cyclonedds resolves outside ${CONDA_PREFIX}; install it only in your own environment"
 
 utc_hour_text="$(date -u +%H)" || fail "cannot read the current UTC time"
 utc_hour=$((10#${utc_hour_text}))
@@ -70,9 +100,12 @@ trap 'forward_signal INT 130' INT
 trap 'forward_signal TERM 143' TERM
 trap 'forward_signal TERM 129' HUP
 
+verify_developer_mode
+
 python -m summit_signal.onboard "$@" <&0 &
 child_pid=$!
 printf '%s\n' "${child_pid}" >"${pid_file}"
 echo "Onboard controller PID: ${child_pid}" >&2
 echo "Separate-terminal stop: scripts/stop_onboard.sh" >&2
+echo "If the robot VIBRATES, stop immediately (Ctrl-C or stop_onboard.sh)." >&2
 wait "${child_pid}"

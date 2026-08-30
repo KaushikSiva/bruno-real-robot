@@ -292,9 +292,7 @@ def capture_calibration(
                 minima[axis] = min(minima[axis], raw)
                 maxima[axis] = max(maxima[axis], raw)
             time.sleep(0.01)
-        one_sided_axes = [
-            axis for axis in axes if not minima[axis] < centers[axis] < maxima[axis]
-        ]
+        one_sided_axes = [axis for axis in axes if not minima[axis] < centers[axis] < maxima[axis]]
         if one_sided_axes:
             details = "; ".join(
                 f"axis {axis}: min={minima[axis]:.3f}, "

@@ -112,8 +112,18 @@ def test_disposable_environment_defaults_to_kaushik() -> None:
         "jetson_preflight.sh",
         "jetson_cleanup.sh",
     ):
-        assert 'environment_name="${1:-kaushik-g1}"' in script(name)
-    assert 'environment_name="${2:-kaushik-g1}"' in script("mac_teleop.sh")
+        assert 'environment_name="${1:-kaushik}"' in script(name)
+    assert 'environment_name="${2:-kaushik}"' in script("mac_teleop.sh")
+
+
+def test_jetson_setup_uses_only_disposable_cached_dependencies() -> None:
+    setup = script("jetson_setup.sh")
+    assert "/opt/unitree_sdk2_python" in setup
+    assert "conda env config vars set" in setup
+    assert "PYTHONNOUSERSITE=1" in setup
+    assert "PIP_USER=0" in setup
+    assert "cyclonedds-0.10.2-cp310-cp310-linux_aarch64.whl" in setup
+    assert "CYCLONEDDS_HOME" not in setup
 
 
 def test_preflight_enforces_time_owner_zero_dev_and_green_order() -> None:
@@ -135,7 +145,7 @@ def test_session_and_cleanup_require_normal_mode_status_and_disposable_env() -> 
     assert session.index("robot normal") < session.rindex("robot status")
     assert "conda create" in setup
     assert "python=3.10" in setup
-    assert "cyclonedds==0.10.2" in setup
+    assert "cyclonedds-0.10.2-cp310-cp310-linux_aarch64.whl" in setup
     assert "conda env remove" in cleanup
     assert cleanup.index("robot normal") < cleanup.index("conda env remove")
 

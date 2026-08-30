@@ -6,9 +6,9 @@ fail() {
   exit 2
 }
 
-environment_name="${1:-kaushik-g1}"
+environment_name="${1:-kaushik}"
 [[ "${environment_name}" =~ ^[A-Za-z][A-Za-z0-9_-]{2,31}$ ]] ||
-  fail "usage: $0 [ENVIRONMENT_NAME] (default: kaushik-g1)"
+  fail "usage: $0 [ENVIRONMENT_NAME] (default: kaushik)"
 command -v conda >/dev/null || fail "conda is unavailable"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"

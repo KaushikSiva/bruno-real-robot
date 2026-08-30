@@ -79,16 +79,17 @@ cd bruno-real-robot
 ```
 
 On later sessions, use `git pull --ff-only` instead of cloning. Setup creates
-only your named `kaushik-g1` conda environment with Python 3.10 and
+only your named `kaushik` conda environment with Python 3.10 and
 `cyclonedds==0.10.2`. It verifies the exact CycloneDDS version and imports the
 facility-provided `unitree_sdk2py`; it never installs into system Python.
 
-Python 3.10 matches the system, so the cached wheel installs in seconds instead
-of compiling. Setup requires `CYCLONEDDS_HOME` to be set (the facility sets it)
-so pip cannot silently fall back to that source build, exports
-`PYTHONNOUSERSITE=1` and installs with `--no-user` so nothing can land in
-`~/.local` where `conda env remove` would not reach it, and then confirms
-`cyclonedds` resolves inside your own prefix. `jetson_preflight.sh` and
+Python 3.10 matches the system. Setup installs the facility's exact cached
+CPython 3.10 aarch64 wheel directly, so pip cannot silently fall back to a
+source build. It stores `/opt/unitree_sdk2_python` and the repository source in
+the disposable environment's `PYTHONPATH`, sets `PYTHONNOUSERSITE=1`, and
+installs with `--no-user` so nothing can land in `~/.local` where
+`conda env remove` would not reach it. It then confirms `cyclonedds` resolves
+inside your own prefix. `jetson_preflight.sh` and
 `run_onboard_session.sh` re-check that last property, so a session cannot start
 from a polluted system Python.
 
@@ -189,7 +190,7 @@ shared configuration, the gantry, reboot state, cron, or autostart.
 | Mac | `mac_setup.sh` | Framework Python, pinned model, headless smoke test |
 | Mac | `mac_calibrate.sh` | Detect and calibrate the DualSense |
 | Mac | `mac_simulate.sh` | Required gesture and R2+Circle rehearsal |
-| Jetson | `jetson_setup.sh` | Disposable `kaushik-g1` conda environment |
+| Jetson | `jetson_setup.sh` | Disposable `kaushik` conda environment |
 | Jetson | `jetson_prepare.sh` | Private activated commissioning config |
 | Jetson | `jetson_preflight.sh` | Hours/status/zero/dev-mode/green checks |
 | Mac | `mac_teleop.sh HOST` | Camera-confirmed SSH teleoperation |

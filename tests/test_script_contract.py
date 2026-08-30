@@ -81,10 +81,10 @@ def test_mac_scripts_share_framework_python_selector() -> None:
 def test_mac_teleop_persists_private_goal_and_session_logs() -> None:
     source = script("mac_teleop.sh")
     assert "umask 077" in source
-    assert 'runtime/hardware-logs' in source
+    assert "runtime/hardware-logs" in source
     assert 'tee "${goal_log}"' in source
     assert 'tee "${session_log}"' in source
-    assert 'chmod 700 --' not in source
+    assert "chmod 700 --" not in source
     assert source.index("PREFLIGHT-GREEN-CAMERA-LIVE") < source.index('mkdir -p "${log_dir}"')
 
 

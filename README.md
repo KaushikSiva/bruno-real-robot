@@ -7,8 +7,55 @@ The Mac sends normalized goals at 10 Hz through one long-lived Tailscale SSH
 connection. The Jetson owns the 500 Hz loop, subscribes to `rt/lowstate`, and
 publishes `rt/lowcmd`. No balance, torque, or position loop crosses the tunnel.
 
-> The software and pinned simulation pass locally and in CI. It has not yet
-> commanded the physical G1. Complete every live prompt and stop if uncertain.
+The gantry commissioning path has now exercised developer-mode entry, valid
+29-motor DDS state, the watchdog, all-joint damping shutdown, and restoration of
+the facility motion service. That is bounded hardware commissioning evidence,
+not validation of autonomous rescue or whole-body learned control. Complete
+every live prompt and stop if uncertain.
+
+## Place in the Everest G1 stack
+
+This repository is the deliberately small physical execution boundary. It owns
+only the DualSense goal stream and the onboard 500 Hz damping/arm loop. The
+higher-level rescue work lives in
+[`everest-g1`](https://github.com/KaushikSiva/everest-g1), while authenticated
+voice escalation lives in
+[`beacon-call`](https://github.com/KaushikSiva/beacon-call).
+
+The intended end-to-end architecture is:
+
+```text
+                         G1 SENSORS
+                    /        |        \
+                Camera      Audio      IMU
+                   |          |         |
+             front-camera  acoustic   body/terrain
+                context     bearing      state
+                    \         |         /
+                         WORLD MODEL
+                              |
+               AI MISSION AGENT (Gemini Robotics-ER 2)
+                              |
+     "I hear a distress call uphill. Locate and reach the person
+                    using a safe route."
+                              |
+                            GR00T
+                              |
+                            SONIC
+                              |
+                              G1
+```
+
+Today, that full learned pipeline is simulation-first. Gemini Robotics-ER 2
+selects only among locally generated, hard-safe route candidates; it does not
+write torques or joint targets. GR00T and SONIC are a separately pinned
+training/evaluation lane, not this commissioning controller. Acoustic bearing
+is mission context, while measured proximity remains the only stop/call gate.
+
+Any promoted physical version must keep world-model inference and all control
+loops onboard the Orin. Camera, acoustic, or mission metadata may trigger an
+asynchronous BeaconCall request only after local motion has stopped; no SSH,
+Gemini, LiveKit, Twilio, or other network round trip may close the control loop.
 
 ## Motion and shutdown contract
 
@@ -191,7 +238,7 @@ shared configuration, the gantry, reboot state, cron, or autostart.
 | Mac | `mac_simulate.sh` | Required gesture and R2+Circle rehearsal |
 | Jetson | `jetson_setup.sh` | Disposable `kaushik` conda environment |
 | Jetson | `jetson_prepare.sh` | Private activated commissioning config |
-| Jetson | `jetson_preflight.sh` | Hours/status/zero/dev-mode/green checks |
+| Jetson | `jetson_preflight.sh` | Status/zero/dev-mode/green checks |
 | Mac | `mac_teleop.sh HOST` | Camera-confirmed SSH teleoperation |
 | Jetson | `stop_onboard.sh` | Validated SIGTERM from a second terminal |
 | Jetson | `jetson_cleanup.sh` | Normal mode, status, env and runtime removal |
@@ -214,3 +261,5 @@ centered, disarmed live goal.
 - [Facility remote-access rules](https://app.notion.com/p/Remote-Robot-Access-Unitree-G1-on-Gantry-3ca864e1a25381ba8589e3f0c3afc1b3)
 - [Official Unitree Python G1 low-level example](https://github.com/unitreerobotics/unitree_sdk2_python/blob/master/example/g1/low_level/g1_low_level_example.py)
 - [Official Unitree MuJoCo repository](https://github.com/unitreerobotics/unitree_mujoco)
+- [Everest G1 simulation, Gemini ER, GR00T, SONIC, and acoustics](https://github.com/KaushikSiva/everest-g1)
+- [BeaconCall LiveKit/Twilio voice escalation](https://github.com/KaushikSiva/beacon-call)

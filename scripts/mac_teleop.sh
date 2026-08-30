@@ -52,8 +52,8 @@ run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 log_dir="${project_root}/runtime/hardware-logs"
 goal_log="${log_dir}/goals-${run_id}.ndjson"
 session_log="${log_dir}/session-${run_id}.log"
-mkdir -p -- "${log_dir}"
-chmod 700 -- "${log_dir}"
+mkdir -p "${log_dir}"
+chmod 700 "${log_dir}"
 
 report_logs() {
   echo "Private Mac logs saved:" >&2

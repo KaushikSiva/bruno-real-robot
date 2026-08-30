@@ -91,7 +91,8 @@ def test_mac_teleop_persists_private_goal_and_session_logs() -> None:
     assert 'runtime/hardware-logs' in source
     assert 'tee "${goal_log}"' in source
     assert 'tee "${session_log}"' in source
-    assert source.index("PREFLIGHT-GREEN-CAMERA-LIVE") < source.index('mkdir -p -- "${log_dir}"')
+    assert 'chmod 700 --' not in source
+    assert source.index("PREFLIGHT-GREEN-CAMERA-LIVE") < source.index('mkdir -p "${log_dir}"')
 
 
 def test_simulation_uses_short_local_confirmation() -> None:

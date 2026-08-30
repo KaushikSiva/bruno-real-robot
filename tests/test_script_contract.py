@@ -115,39 +115,73 @@ def test_session_and_cleanup_require_normal_mode_status_and_disposable_env() -> 
     assert cleanup.index("robot normal") < cleanup.index("conda env remove")
 
 
-# Reading these to confirm nothing was left behind is required; creating or editing
-# an entry is what must never happen. Any mention must be one of these exact forms.
+# Reading these to confirm the session state is required; creating, editing or
+# tearing one down is what must never happen. Any mention must be one of these
+# exact read-only forms.
+#
+# Breaking connectivity locks out everyone including the admin, and the only
+# recovery is someone physically walking to the robot with a monitor and
+# keyboard. That has already cost a day once.
 READ_ONLY_PERSISTENCE_CALLS = (
     "command -v crontab",
     "crontab -l",
     "command -v systemctl",
     "systemctl --user list-unit-files",
+    "command -v tailscale",
+    "tailscale status",
+)
+INSPECTION_ONLY_TOOLS = ("crontab", "systemctl", "tailscale")
+
+# Anything that can drop the network, change addressing, or change name
+# resolution. The facility owns all of it.
+PROHIBITED_COMMANDS = (
+    "--network-interface",
+    "netplan",
+    "systemctl enable",
+    "systemctl start",
+    "systemctl --user enable",
+    "tailscale up",
+    "tailscale down",
+    "tailscale logout",
+    "tailscale set",
+    "ifconfig",
+    "nmcli",
+    "iptables",
+    "nft ",
+    "ufw ",
+    "dhclient",
+    "resolvectl",
+    "systemd-networkd",
+    "ip link set",
+    "ip addr add",
+    "ip addr del",
+    "ip route",
+    "/etc/resolv.conf",
+    "/etc/hosts",
+    "reboot",
+    "shutdown -h",
+    "crontab -e",
+    "crontab -r",
 )
 
 
 def test_scripts_do_not_offer_network_or_persistent_service_changes() -> None:
-    combined = "\n".join(script(name) for name in REQUIRED_SCRIPTS)
-    prohibited = (
-        "--network-interface",
-        "netplan",
-        "systemctl enable",
-        "systemctl start",
-        "systemctl --user enable",
-        "tailscale up",
-        "reboot",
-        "shutdown -h",
-        "crontab -e",
-        "crontab -r",
-    )
-    for command in prohibited:
-        assert command not in combined
+    # Every shell script ships to the robot, not only the ones named above, and
+    # helpers live in subdirectories, so a newly added script anywhere under
+    # scripts/ is covered by this contract automatically.
+    shell_scripts = sorted(SCRIPTS.rglob("*.sh"))
+    assert REQUIRED_SCRIPTS.issubset({path.name for path in shell_scripts})
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in shell_scripts)
 
-    # Belt and braces: every crontab/systemctl mention is a read-only inspection.
+    for command in PROHIBITED_COMMANDS:
+        assert command not in combined, f"prohibited command in scripts/: {command}"
+
+    # Belt and braces: every mention of these tools is a read-only inspection.
     for line in combined.splitlines():
         stripped = line.strip()
         if stripped.startswith("#"):
             continue
-        for tool in ("crontab", "systemctl"):
+        for tool in INSPECTION_ONLY_TOOLS:
             if tool in stripped:
                 assert any(call in stripped for call in READ_ONLY_PERSISTENCE_CALLS), (
                     f"non-read-only {tool} usage: {stripped}"

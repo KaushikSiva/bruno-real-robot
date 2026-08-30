@@ -28,6 +28,32 @@ export PYTHONPATH="${project_root}/src${PYTHONPATH:+:${PYTHONPATH}}"
 python -m summit_signal.sdk_probe || fail "the disposable SDK environment is incompatible"
 command -v robot >/dev/null || fail "the facility robot helper is unavailable"
 
+# --- developer-mode verification -------------------------------------------------
+# Sending rt/lowcmd while the built-in motion service still owns the joints makes the
+# two controllers fight over every joint and the robot vibrates violently. Ask the
+# robot rather than trusting a flag typed once on the operator's command line.
+# Override the match if the facility's `robot status` wording differs:
+#   export SUMMIT_SIGNAL_DEV_MODE_PATTERN='exact text shown in developer mode'
+dev_mode_pattern="${SUMMIT_SIGNAL_DEV_MODE_PATTERN:-dev[-_ ]?mode|developer}"
+
+verify_developer_mode() {
+  local status_output
+  # </dev/null so this can never consume the operator goal stream on stdin.
+  if ! status_output="$(robot status 2>&1 </dev/null)"; then
+    fail "'robot status' failed; cannot confirm developer mode"
+  fi
+  echo "robot status:" >&2
+  printf '%s\n' "${status_output}" >&2
+  if ! printf '%s' "${status_output}" | grep -Eiq -- "${dev_mode_pattern}"; then
+    echo "The status above does not match /${dev_mode_pattern}/i." >&2
+    echo "If the built-in motion service still owns the robot, starting the" >&2
+    echo "controller now would make the robot VIBRATE VIOLENTLY." >&2
+    echo "Run ./scripts/jetson_preflight.sh, or if this wording is what your" >&2
+    echo "facility prints in developer mode, set SUMMIT_SIGNAL_DEV_MODE_PATTERN." >&2
+    fail "developer mode is not confirmed by 'robot status'"
+  fi
+}
+
 utc_hour_text="$(date -u +%H)" || fail "cannot read the current UTC time"
 utc_hour=$((10#${utc_hour_text}))
 if ((utc_hour < 2 || utc_hour >= 9)); then
@@ -68,8 +94,13 @@ echo "Developer mode requested. Check the live camera now."
 read -r -p "Type FACE-GREEN only after the face light is green: " confirmation
 [[ "${confirmation}" == "FACE-GREEN" ]] ||
   fail "developer mode was not visually confirmed"
-robot status
+verify_developer_mode
 
 restore_normal=false
 trap - EXIT INT TERM HUP
 echo "PREFLIGHT COMPLETE. Start the onboard controller immediately."
+echo
+echo "The robot is now limp and resting in the harness; that is expected on the gantry."
+echo "If the robot VIBRATES when the controller starts, the built-in motion service is"
+echo "still fighting your commands: stop the controller immediately with Ctrl-C or"
+echo "./scripts/stop_onboard.sh, then contact the admin. Do not retry blindly."

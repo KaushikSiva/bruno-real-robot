@@ -1,5 +1,9 @@
 # Summit Signal safety checklist
 
+Escalate the moment you are unsure — a false alarm costs a message, the
+alternative costs a humanoid. The admin's killswitch can fire at any time
+without warning; expect the robot to go slack and settle into the harness.
+
 Stop at the first unchecked item. The robot administrator has final authority.
 
 ## Before connecting

@@ -76,6 +76,17 @@ class GoalReceiver:
             return None
 
 
+# Terminating the process is the only remote stop once the built-in motion service is
+# released, so every catchable termination signal must reach the damping shutdown.
+# SIGHUP matters most: its default action kills the process outright, which would skip
+# the release() damping write and leave the last commanded frame latched on the robot.
+STOP_SIGNALS: tuple[int, ...] = tuple(
+    sig
+    for sig in (signal.SIGINT, signal.SIGTERM, getattr(signal, "SIGHUP", None))
+    if sig is not None
+)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
@@ -152,9 +163,7 @@ def run(
         del signum, frame
         stop_requested.set()
 
-    previous_handlers = {
-        sig: signal.signal(sig, request_stop) for sig in (signal.SIGINT, signal.SIGTERM)
-    }
+    previous_handlers = {sig: signal.signal(sig, request_stop) for sig in STOP_SIGNALS}
     connected = False
     controller: ArmSafetyController | None = None
     release_error: Exception | None = None

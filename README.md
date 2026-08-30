@@ -25,9 +25,14 @@ publishes `rt/lowcmd`. No balance, torque, or position loop crosses the tunnel.
   The wrapper then runs `robot normal` and requires a successful `robot status`.
 - Never use `kill -9`; it cannot run the damping handler.
 
-The facility's admin killswitch remains the independent final authority. If the
+The facility's admin killswitch remains the independent final authority. It can
+fire at any time without warning; the robot goes slack and this controller loses
+it mid-motion. Nothing here depends on finishing a motion, and the damping write
+still completes against a robot that is already off — keep it that way. If the
 robot is stuck, straining, noisy, faulted, caught in the harness, moving without
 a live camera, or loses SSH while moving, stop and contact the admin immediately.
+Escalate the moment you are unsure. A false alarm costs a message; the
+alternative costs a humanoid.
 
 ## Simple session: run these scripts in order
 

@@ -11,6 +11,16 @@ environment_name="${1:-}"
   fail "usage: $0 YOURNAME-g1 (3-32 safe characters, beginning with a letter)"
 [[ "${environment_name}" != "base" ]] || fail "the shared base environment is forbidden"
 command -v conda >/dev/null || fail "conda is unavailable"
+# The facility builds and caches the cyclonedds wheel against this prefix. Without it
+# pip falls back to a long source compile against the shared system install.
+[[ -n "${CYCLONEDDS_HOME:-}" ]] ||
+  fail "CYCLONEDDS_HOME is unset; the facility normally sets it. Contact the admin"
+[[ -d "${CYCLONEDDS_HOME}" ]] ||
+  fail "CYCLONEDDS_HOME=${CYCLONEDDS_HOME} is not a directory"
+# Never let a stray --user default drop packages into ~/.local: that survives
+# conda env remove and changes the shared robot for the next operator.
+export PYTHONNOUSERSITE=1
+export PIP_USER=0
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd -- "${script_dir}/.." && pwd)"
 
@@ -32,12 +42,22 @@ trap 'exit 129' HUP
 
 conda create -n "${environment_name}" python=3.10 -y
 conda run -n "${environment_name}" --no-capture-output \
-  python -m pip install cyclonedds==0.10.2
+  python -m pip install --no-user cyclonedds==0.10.2
+# cyclonedds must resolve inside the disposable prefix; anywhere else means the
+# shared system or user Python was modified and the change outlives the session.
+conda run -n "${environment_name}" --no-capture-output python -c \
+  'import sys, cyclonedds; raise SystemExit(0 if cyclonedds.__file__.startswith(sys.prefix) else 2)' ||
+  fail "cyclonedds resolved outside ${environment_name}; do not install into system Python"
 PYTHONPATH="${project_root}/src${PYTHONPATH:+:${PYTHONPATH}}" \
   conda run -n "${environment_name}" --no-capture-output \
   python -m summit_signal.sdk_probe
 
 setup_complete=true
 trap - EXIT INT TERM HUP
+if compgen -G "${HOME}/.local/lib/python3.10/site-packages/cyclonedds*" >/dev/null; then
+  echo "WARNING: cyclonedds is also present in ~/.local/lib/python3.10/site-packages;" >&2
+  echo "         that copy outlives this session. Remove it or tell the admin." >&2
+fi
+
 echo "JETSON SETUP COMPLETE: disposable environment ${environment_name} is ready."
 echo "Next: ./scripts/jetson_prepare.sh ${environment_name}"

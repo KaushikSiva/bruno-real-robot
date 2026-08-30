@@ -74,6 +74,10 @@ if [[ "${CONDA_DEFAULT_ENV}" == "base" ]]; then
 fi
 export PYTHONPATH="${project_root}/src${PYTHONPATH:+:${PYTHONPATH}}"
 python -m summit_signal.sdk_probe || fail "the disposable SDK environment is incompatible"
+# cyclonedds must live in this disposable prefix; anywhere else means the shared
+# system or user Python was modified and the change would outlive the session.
+python -c 'import sys, cyclonedds; raise SystemExit(0 if cyclonedds.__file__.startswith(sys.prefix) else 2)' ||
+  fail "cyclonedds resolves outside ${CONDA_PREFIX}; install it only in your own environment"
 
 utc_hour_text="$(date -u +%H)" || fail "cannot read the current UTC time"
 utc_hour=$((10#${utc_hour_text}))

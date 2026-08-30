@@ -4,252 +4,198 @@ Simulation-first DualSense teleoperation for one small right-arm gesture on a
 29-DOF Unitree G1 suspended from the facility gantry.
 
 The Mac sends normalized goals at 10 Hz through one long-lived Tailscale SSH
-connection. A process on the Jetson owns the 500 Hz loop, reads
-`rt/lowstate`, and writes `rt/lowcmd`. Network latency never closes the
-joint loop.
+connection. The Jetson owns the 500 Hz loop, subscribes to `rt/lowstate`, and
+publishes `rt/lowcmd`. No balance, torque, or position loop crosses the tunnel.
 
-> This code has passed local tests and the pinned MuJoCo rehearsal. It has not
-> yet commanded the remote G1. Run the simulation and facility preflight first.
+> The software and pinned simulation pass locally and in CI. It has not yet
+> commanded the physical G1. Complete every live prompt and stop if uncertain.
 
-The hardware contract follows the facility's
-[Remote Robot Access — Unitree G1 on Gantry](https://app.notion.com/p/Remote-Robot-Access-Unitree-G1-on-Gantry-3ca864e1a25381ba8589e3f0c3afc1b3)
-rules and Unitree's official
-[G1 low-level example](https://github.com/unitreerobotics/unitree_sdk2_python/blob/master/example/g1/low_level/g1_low_level_example.py).
+## Motion and shutdown contract
 
-## What moves
+- Only right shoulder pitch (IDL 22), shoulder roll (23), and elbow (25)
+  receive position gains.
+- The commissioning profile permits only 1 degree at each shoulder and 1.5
+  degrees at the elbow around the first measured pose.
+- L1 is hold-to-run. R2+Circle requests emergency shutdown. Circle alone does
+  nothing. Options is a normal clean exit.
+- Every other joint is damping-only: `tau=0`, `kp=0`, `kd=8`.
+- Ctrl-C, SIGTERM, SIGHUP, R2+Circle, joystick removal, malformed/closed input,
+  goal timeout, or stale robot state all enter the same shutdown path.
+- Shutdown writes `tau=0`, `kp=0`, `kd=8` to all 29 joints for one second.
+  The wrapper then runs `robot normal` and requires a successful `robot status`.
+- Never use `kill -9`; it cannot run the damping handler.
 
-- Position control is limited to right shoulder pitch (IDL 22), right shoulder
-  roll (23), and right elbow (25).
-- The commissioning profile limits shoulder excursion to 1 degree and elbow
-  excursion to 1.5 degrees around the first measured pose.
-- Target slew is limited to 0.1 rad/s and measured controlled-joint speed above
-  0.5 rad/s latches shutdown.
-- All other joints always receive damping-only commands: zero feed-forward
-  torque, `kp=0`, `kd=8`.
-- L1 is hold-to-run. Hold R2 and press Circle to latch shutdown. Options exits
-  cleanly.
-- No learned model, agent, MCP tool, or remote process can provide joint targets.
+The facility's admin killswitch remains the independent final authority. If the
+robot is stuck, straining, noisy, faulted, caught in the harness, moving without
+a live camera, or loses SSH while moving, stop and contact the admin immediately.
 
-## Stop and restoration contract
+## Simple session: run these scripts in order
 
-There is no separate remote robot-stop API in developer mode. Every software
-stop terminates this controller and takes the same path:
+Do not put the robot host, password, camera URL, or tailnet identity in this
+repository. Supply them only when connecting.
 
-1. `SIGINT`, `SIGTERM`, `SIGHUP`, R2+Circle, joystick removal, malformed
-   input, closed SSH/stdin, a 250 ms goal timeout, or stale robot state stops
-   motion.
-2. The Jetson writes all 29 motors with `tau=0`, `kp=0`, `kd=8` for one
-   second, leaving damping as the last latched low-level frame.
-3. The session wrapper runs `robot normal` to return ownership to the
-   facility's built-in controller.
-
-Available operator stops:
-
-- Hold R2 and press Circle on the DualSense.
-- Ctrl-C in the controller terminal.
-- `scripts/stop_onboard.sh` from a second Jetson terminal.
-- Normal `kill <controller-pid>` (SIGTERM). Never use `kill -9`; it cannot
-  be trapped.
-- Loss of SSH/goals automatically trips the onboard watchdog.
-- The admin's independent killswitch remains the final physical authority.
-
-If the robot is stuck, straining, noisy, faulted, caught in the harness, moving
-without a camera view, or loses SSH while moving, contact the admin immediately.
-
-## Architecture
-
-```text
-Mac / DualSense                         Jetson / robot-local DDS
-
-calibrated axes                                rt/lowstate
-      │                                             │
-      ▼                                             ▼
-normalized goals ── Tailscale SSH stdin ──► watchdog + limits
-10 Hz, no joint targets                            │
-                                                   ▼
-                                         500 Hz lowcmd frames
-                                                   │
-                       ┌───────────────────────────┴────────────────────┐
-                       ▼                                                ▼
-          right arm 22/23/25 position                    all 29 joints damping
-          bounded target, ramped gain                    tau=0, kp=0, kd=8
-```
-
-## 1. Mac setup and calibration
-
-```bash
-git clone https://github.com/KaushikSiva/bruno-real-robot.git
-cd bruno-real-robot
-uv sync --extra simulation --extra test
-
-uv run summit-signal-operator --list-joysticks
-uv run summit-signal-operator \
-  --calibrate runtime/dualsense-arm.json \
-  --joystick-index 0
-```
-
-Default controls are L1 dead-man, left-stick vertical/horizontal for right
-shoulder pitch/roll, right-stick vertical for right elbow, R2+Circle emergency
-stop, and Options clean exit. The configuration uses the standard SDL
-DualSense mapping (Circle button 1 and R2 trigger axis 5); the required
-simulation is also the control-mapping check for this Mac.
-
-## 2. Required simulation
-
-Clone and pin Unitree's official model beside this repository:
-
-```bash
-git clone https://github.com/unitreerobotics/unitree_mujoco.git ../unitree_mujoco
-git -C ../unitree_mujoco checkout 4134cb5dc7ff1ba7f484deda48b5274b58694519
-```
-
-Run the exact commissioning profile headlessly:
-
-```bash
-uv run summit-signal-smoke \
-  --model ../unitree_mujoco/unitree_robots/g1/scene_29dof.xml \
-  --hardware-config config/hardware.example.json \
-  --seconds 3
-```
-
-Then test the joystick on macOS:
-
-```bash
-uv run mjpython -m summit_signal.simulator \
-  --model ../unitree_mujoco/unitree_robots/g1/scene_29dof.xml \
-  --hardware-config config/hardware.example.json \
-  --calibration runtime/dualsense-arm.json \
-  --joystick-index 0 \
-  --record-goals runtime/simulation-goals.ndjson \
-  --record-initial-state runtime/simulation-initial-state.json \
-  --seconds 30
-```
-
-Perform one small shoulder movement, return to center, release L1, then hold R2
-and press Circle once. Circle alone must not stop; the chord must stop. The model
-braces non-commanded joints, so this validates the arm
-mapping and safety envelope—not whole-body balance or the physical gantry.
-
-The checked-in configuration contains complete commissioning numbers and no
-`null` values. It works in simulation, but `hardware_activation.enabled`
-remains false so it cannot initialize hardware.
-
-## 3. Disposable Jetson conda environment
-
-Connect only through your personal facility Tailscale access. Do not commit the
-host, password, camera URL, tailnet identity, or other facility credentials.
+### A. Mac: setup and required simulation
 
 ```bash
 git clone https://github.com/KaushikSiva/bruno-real-robot.git
 cd bruno-real-robot
 
-conda create -n YOURNAME-g1 python=3.10 -y
-conda activate YOURNAME-g1
-pip install cyclonedds==0.10.2
-python -c "import cyclonedds, unitree_sdk2py"
+./scripts/mac_setup.sh
+./scripts/mac_calibrate.sh
+./scripts/mac_simulate.sh
 ```
 
-Do not install or change the system Python. The facility supplies
-`unitree_sdk2py` on the system `PYTHONPATH`; this repository runs directly
-from `src/` and needs no Jetson package installation.
+`mac_setup.sh` creates a local Python 3.10 uv environment, clones Unitree's
+official MuJoCo repository beside this checkout, pins commit
+`4134cb5dc7ff1ba7f484deda48b5274b58694519`, and runs a headless smoke test.
+`mac_simulate.sh` requires the real joystick gesture and verifies that a
+connected R2+Circle emergency goal was recorded.
 
-After the simulation passes and your personal facility access is active, create
-the ignored real-robot copy from the exact simulation profile:
+In MuJoCo:
+
+1. Keep L1 released and center both sticks.
+2. Hold L1.
+3. Move only the left stick vertically about 25% for one second.
+4. Center the stick and release L1.
+5. Press Circle alone; it must not stop.
+6. Hold R2 and press Circle; simulation must stop.
+
+### B. Jetson: pull, create the disposable environment, and prepare
+
+Connect using your personal Tailscale SSH access, then:
 
 ```bash
-PYTHONPATH=src python -m summit_signal.activation \
-  --facility-rules-acknowledged \
-  --personal-access-confirmed \
-  --simulation-passed
+git clone https://github.com/KaushikSiva/bruno-real-robot.git
+cd bruno-real-robot
+
+./scripts/jetson_setup.sh YOURNAME-g1
+./scripts/jetson_prepare.sh YOURNAME-g1
 ```
 
-This creates private `runtime/hardware.json` with every numeric value already
-filled and changes only `hardware_activation.enabled` to true. It records your
-acknowledgements; it does not claim that an administrator created or approved
-the file. The controller still requires the live access, hours, camera, and
-developer-mode flags below.
+On later sessions, use `git pull --ff-only` instead of cloning. Setup creates
+only your named conda environment with Python 3.10 and
+`cyclonedds==0.10.2`. It verifies the exact CycloneDDS version and imports the
+facility-provided `unitree_sdk2py`; it never installs into system Python.
 
-## 4. Enter developer mode safely
+Preparation creates private, ignored `runtime/hardware.json` from the complete
+checked-in commissioning profile. There are no `null` values. This records your
+rules/access/simulation acknowledgement; it does not claim an administrator
+created the configuration.
 
-During staffed on-site hours, keep the live camera open and confirm the admin
-killswitch is ready. In the activated disposable conda environment:
+### C. Jetson: preflight and enter developer mode
+
+Keep the live camera open, then run:
 
 ```bash
-./scripts/jetson_preflight.sh
+./scripts/jetson_preflight.sh YOURNAME-g1
 ```
 
-The script checks Python 3.10 and both SDK imports, shows `robot status`,
-requires typed camera/killswitch confirmation, runs `robot zero` while the
-built-in service still owns the robot, then runs `robot dev-mode`. It requires
-visual confirmation of the green face light. If preflight is interrupted, it
-runs `robot normal`.
+The script refuses to continue unless all of these are true:
 
-Do not start the controller unless preflight completes.
+- the disposable environment is active through `conda run`;
+- Python is exactly 3.10 and CycloneDDS is exactly 0.10.2;
+- current time is 10:00–17:00 MYT (02:00–09:00 UTC);
+- `robot status` was inspected and built-in ownership was explicitly confirmed;
+- exclusive access, live camera, and admin killswitch readiness were confirmed;
+- `robot zero` runs before `robot dev-mode`;
+- the green face light is confirmed on camera.
 
-## 5. Run Mac-to-Jetson teleoperation
+If preflight fails after ownership changes begin, it attempts `robot normal`.
+Do not start teleoperation unless `PREFLIGHT COMPLETE` is printed.
 
-From the calibrated Mac checkout:
+### D. Mac: run the 30-second teleoperation
+
+From the Mac checkout:
 
 ```bash
-uv run summit-signal-operator \
-  --calibration runtime/dualsense-arm.json \
-  --joystick-index 0 \
-  --seconds 30 |
-ssh -T ROBOT_HOST \
-  'cd bruno-real-robot && conda run -n YOURNAME-g1 --no-capture-output \
-    ./scripts/run_onboard_session.sh \
-      --config runtime/hardware.json \
-      --motion-profile commissioning \
-      --real-robot \
-      --facility-rules-acknowledged \
-      --exclusive-access-confirmed \
-      --within-onsite-hours-confirmed \
-      --camera-confirmed \
-      --developer-mode-confirmed'
+./scripts/mac_teleop.sh ROBOT_SSH_HOST YOURNAME-g1
 ```
 
-Tailscale is only the SSH transport. Do not pass the Tailscale interface to DDS
-or change network configuration. The adapter uses the facility's preconfigured
-local SDK/DDS default; `--network-interface` exists only if the admin gives an
-explicit robot-local DDS interface.
+The script checks Tailscale, prompts for the camera URL without saving it, opens
+the camera, requires green-face/live-camera confirmation, and starts the SSH
+goal stream. The remote repository is expected at `~/bruno-real-robot`.
 
-Keep L1 released until `CONNECTED` appears. Hold L1, make one small
-right-shoulder movement, return the stick to center, release L1, and press
-Options. Confirm both:
+For the first real test, repeat only the tiny vertical left-stick movement from
+simulation. Stop after one movement.
+
+## Stop options
+
+- Hold R2 and press Circle.
+- Press Ctrl-C in the Mac teleoperation terminal.
+- Press Options for a normal clean finish.
+- From a second Jetson terminal:
+
+  ```bash
+  cd bruno-real-robot
+  ./scripts/stop_onboard.sh
+  ```
+
+- Or send normal SIGTERM: `kill -TERM "$(cat runtime/onboard.pid)"`.
+- The admin can use the independent physical killswitch at any time.
+
+Wait for both messages before treating a software stop as complete:
 
 ```text
 ALL-29 DAMPING SHUTDOWN COMPLETE
 Restoring the facility's built-in controller with: robot normal
 ```
 
-From another Jetson terminal, the safe software-stop command is:
+If the camera dies, the robot vibrates, a joint faults, SSH is lost during
+motion, or either message is missing, contact the admin immediately.
 
-```bash
-cd bruno-real-robot
-./scripts/stop_onboard.sh
-```
+### E. Jetson: deactivate and remove everything from the session
 
-## 6. Cleanup
-
-Verify `robot status` shows the built-in controller restored, no Summit Signal
-process remains, and the robot is visually safe. Then:
+If you manually activated the environment, deactivate it first:
 
 ```bash
 conda deactivate
-conda env remove -n YOURNAME-g1
 ```
 
-Delete unneeded recordings and the checkout if the facility requires it. Do not
-create services, cron jobs, autostart entries, network changes, or persistent
-environments.
-
-## Verification
+Then, after checking the robot on camera:
 
 ```bash
-uv run --extra test pytest
+cd bruno-real-robot
+./scripts/jetson_cleanup.sh YOURNAME-g1
+```
+
+Cleanup refuses to proceed if the controller is still running or if the target
+environment is active. It requires camera confirmation, runs `robot normal`,
+requires `robot status` and a second camera confirmation, removes the named
+conda environment, and deletes the private hardware configuration and PID file.
+Delete unneeded recordings and the checkout too if required by the facility.
+
+No script modifies Tailscale, netplan, interfaces, DNS, firewall, systemd,
+shared configuration, the gantry, reboot state, cron, or autostart.
+
+## Script index
+
+| Machine | Script | Purpose |
+| --- | --- | --- |
+| Mac | `mac_setup.sh` | Python 3.10, pinned model, headless smoke test |
+| Mac | `mac_calibrate.sh` | Detect and calibrate the DualSense |
+| Mac | `mac_simulate.sh` | Required gesture and R2+Circle rehearsal |
+| Jetson | `jetson_setup.sh NAME` | Disposable conda environment |
+| Jetson | `jetson_prepare.sh NAME` | Private activated commissioning config |
+| Jetson | `jetson_preflight.sh NAME` | Hours/status/zero/dev-mode/green checks |
+| Mac | `mac_teleop.sh HOST NAME` | Camera-confirmed SSH teleoperation |
+| Jetson | `stop_onboard.sh` | Validated SIGTERM from a second terminal |
+| Jetson | `jetson_cleanup.sh NAME` | Normal mode, status, env and runtime removal |
+
+## Verification for developers
+
+```bash
+uv run --python 3.10 --extra test pytest -q
+uvx --from ruff==0.12.10 ruff check .
+uvx --from ruff==0.12.10 ruff format --check .
 bash -n scripts/*.sh
 ```
 
-Tests use fake DDS messages and never import the Unitree SDK, initialize DDS,
-open SSH, or command hardware. The first I/O boundary is
-`UnitreeLowLevelAdapter.connect()`, reached only after all activation gates.
+Tests use fake DDS messages. Unitree SDK imports and DDS initialization remain
+lazy; the first robot I/O occurs only after the full activation gate and a
+centered, disarmed live goal.
+
+## References
+
+- [Facility remote-access rules](https://app.notion.com/p/Remote-Robot-Access-Unitree-G1-on-Gantry-3ca864e1a25381ba8589e3f0c3afc1b3)
+- [Official Unitree Python G1 low-level example](https://github.com/unitreerobotics/unitree_sdk2_python/blob/master/example/g1/low_level/g1_low_level_example.py)
+- [Official Unitree MuJoCo repository](https://github.com/unitreerobotics/unitree_mujoco)

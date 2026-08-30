@@ -87,7 +87,7 @@ G1_29DOF_MODEL_JOINTS = (
 )
 EXPECTED_ROBOT_VARIANT = "g1_29dof"
 EXPECTED_JOINT_MAP_CONFIRMATION = "unitree_g1_29dof_idl_indices_0_28"
-EXPECTED_SDK_API_CONFIRMATION = "unitree_sdk2py_1.0.1_cyclonedds_0.10.2"
+EXPECTED_SDK_API_CONFIRMATION = "facility_unitree_sdk2py_g1_lowcmd_api_cyclonedds_0.10.2"
 EXPECTED_COMMAND_SCOPE_CONFIRMATION = "lowcmd_all_29_damping_right_arm_22_23_25_position_only"
 SUPPORTED_SHUTDOWN_STRATEGY = "lowcmd_all_29_joint_damping"
 MOTION_PROFILE_SCALES = {"commissioning": 0.1, "demo": 1.0}

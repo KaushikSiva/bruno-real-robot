@@ -19,6 +19,8 @@ from summit_signal.protocol import MAX_GOAL_BYTES, ArmGoal, ProtocolError
 from summit_signal.safety import ArmSafetyController
 from summit_signal.unitree_adapter import UnitreeAdapterError, UnitreeLowLevelAdapter
 
+STATUS_PERIOD_S = 0.2
+
 
 @dataclass(frozen=True)
 class ReceivedGoal:
@@ -77,10 +79,6 @@ class GoalReceiver:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
-    parser.add_argument(
-        "--network-interface",
-        help="facility-approved robot DDS interface; omit to use the preconfigured SDK default",
-    )
     parser.add_argument("--motion-profile", choices=("commissioning", "demo"), required=True)
     parser.add_argument("--real-robot", action="store_true")
     parser.add_argument("--facility-rules-acknowledged", action="store_true")
@@ -140,16 +138,14 @@ def _validated_initial_goal(received: ReceivedGoal | None) -> ReceivedGoal:
 def run(
     args: argparse.Namespace,
     *,
-    adapter_factory: Callable[
-        [HardwareConfig, str | None], UnitreeLowLevelAdapter
-    ] = UnitreeLowLevelAdapter,
+    adapter_factory: Callable[[HardwareConfig], UnitreeLowLevelAdapter] = UnitreeLowLevelAdapter,
 ) -> int:
     config = HardwareConfig.load(args.config)
     validate_activation(args, config)
     receiver = GoalReceiver(sys.stdin.buffer)
     receiver.start()
     initial = _validated_initial_goal(receiver.take(timeout=config.initial_goal_timeout_s))
-    adapter = adapter_factory(config, args.network_interface)
+    adapter = adapter_factory(config)
     stop_requested = threading.Event()
 
     def request_stop(signum: int, frame: object) -> None:
@@ -183,6 +179,7 @@ def run(
             file=sys.stderr,
         )
         period = config.control_period_s
+        next_status_at = time.monotonic()
         while not controller.shutdown_requested and not stop_requested.is_set():
             cycle_start = time.monotonic()
             _consume(receiver, controller)
@@ -198,13 +195,15 @@ def run(
                 velocities=state.velocities,
             )
             gain_scale = adapter.publish(command, now=control_now)
-            print(
-                f"\r{command.state.value:<8} arm_gain={gain_scale:.3f} "
-                f"sequence_age<={config.watchdog_timeout_s:.2f}s",
-                end="",
-                file=sys.stderr,
-                flush=True,
-            )
+            if control_now >= next_status_at:
+                print(
+                    f"\r{command.state.value:<8} arm_gain={gain_scale:.3f} "
+                    f"sequence_age<={config.watchdog_timeout_s:.2f}s",
+                    end="",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                next_status_at = control_now + STATUS_PERIOD_S
             if command.shutdown_requested:
                 break
             remaining = period - (time.monotonic() - cycle_start)

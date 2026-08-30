@@ -17,7 +17,7 @@ def hardware_config() -> HardwareConfig:
         hardware_enabled=True,
         facility_rules_reference="facility-rules",
         joint_map_confirmation="unitree_g1_29dof_idl_indices_0_28",
-        sdk_api_confirmation="unitree_sdk2py_1.0.1_cyclonedds_0.10.2",
+        sdk_api_confirmation="facility_unitree_sdk2py_g1_lowcmd_api_cyclonedds_0.10.2",
         command_scope_confirmation=("lowcmd_all_29_damping_right_arm_22_23_25_position_only"),
         robot_variant="g1_29dof",
         motion_profile="commissioning",
@@ -72,7 +72,7 @@ class FakePublisher:
 
 
 def ready_adapter(config: HardwareConfig) -> tuple[UnitreeLowLevelAdapter, FakePublisher]:
-    adapter = UnitreeLowLevelAdapter(config, "eth0", clock=lambda: 1.0)
+    adapter = UnitreeLowLevelAdapter(config, clock=lambda: 1.0)
     publisher = FakePublisher()
     adapter._connected = True
     adapter._publisher = publisher
@@ -83,7 +83,7 @@ def ready_adapter(config: HardwareConfig) -> tuple[UnitreeLowLevelAdapter, FakeP
 
 
 def test_constructor_is_inert_until_explicit_connect() -> None:
-    adapter = UnitreeLowLevelAdapter(hardware_config(), "eth0")
+    adapter = UnitreeLowLevelAdapter(hardware_config())
     assert adapter._publisher is None
     assert not adapter._connected
 

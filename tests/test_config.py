@@ -13,7 +13,7 @@ def valid_hardware() -> dict:
             "enabled": True,
             "facility_rules_reference": "facility-rules",
             "joint_map_confirmation": "unitree_g1_29dof_idl_indices_0_28",
-            "sdk_api_confirmation": "unitree_sdk2py_1.0.1_cyclonedds_0.10.2",
+            "sdk_api_confirmation": "facility_unitree_sdk2py_g1_lowcmd_api_cyclonedds_0.10.2",
             "command_scope_confirmation": (
                 "lowcmd_all_29_damping_right_arm_22_23_25_position_only"
             ),
@@ -58,7 +58,7 @@ def test_checked_in_hardware_example_is_deliberately_not_runnable() -> None:
         HardwareConfig.load(example)
 
 
-def test_hardware_config_accepts_only_completed_admin_values(tmp_path: Path) -> None:
+def test_hardware_config_accepts_only_completed_activation_values(tmp_path: Path) -> None:
     config = HardwareConfig.load(write_config(tmp_path / "hardware.json", valid_hardware()))
     assert config.hardware_enabled
     assert config.control_period_s == pytest.approx(0.002)
@@ -83,7 +83,7 @@ def test_hardware_config_rejects_inactive_file(tmp_path: Path) -> None:
         "enabled": False,
         "facility_rules_reference": "",
         "joint_map_confirmation": "unitree_g1_29dof_idl_indices_0_28",
-        "sdk_api_confirmation": "unitree_sdk2py_1.0.1_cyclonedds_0.10.2",
+        "sdk_api_confirmation": "facility_unitree_sdk2py_g1_lowcmd_api_cyclonedds_0.10.2",
         "command_scope_confirmation": ("lowcmd_all_29_damping_right_arm_22_23_25_position_only"),
     }
     with pytest.raises(ConfigError, match="activation"):

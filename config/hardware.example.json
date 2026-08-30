@@ -4,7 +4,7 @@
     "enabled": false,
     "facility_rules_reference": "https://app.notion.com/p/Remote-Robot-Access-Unitree-G1-on-Gantry-3ca864e1a25381ba8589e3f0c3afc1b3",
     "joint_map_confirmation": "unitree_g1_29dof_idl_indices_0_28",
-    "sdk_api_confirmation": "unitree_sdk2py_1.0.1_cyclonedds_0.10.2",
+    "sdk_api_confirmation": "facility_unitree_sdk2py_g1_lowcmd_api_cyclonedds_0.10.2",
     "command_scope_confirmation": "lowcmd_all_29_damping_right_arm_22_23_25_position_only"
   },
   "robot_variant": "g1_29dof",

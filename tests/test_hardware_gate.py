@@ -9,9 +9,11 @@ import pytest
 
 from summit_signal.config import HardwareConfig
 from summit_signal.onboard import (
+    STATUS_PERIOD_S,
     GoalReceiver,
     ReceivedGoal,
     _validated_initial_goal,
+    build_parser,
     run,
     validate_activation,
 )
@@ -23,7 +25,7 @@ def hardware_config() -> HardwareConfig:
         hardware_enabled=True,
         facility_rules_reference="facility-rules",
         joint_map_confirmation="unitree_g1_29dof_idl_indices_0_28",
-        sdk_api_confirmation="unitree_sdk2py_1.0.1_cyclonedds_0.10.2",
+        sdk_api_confirmation="facility_unitree_sdk2py_g1_lowcmd_api_cyclonedds_0.10.2",
         command_scope_confirmation=("lowcmd_all_29_damping_right_arm_22_23_25_position_only"),
         robot_variant="g1_29dof",
         motion_profile="commissioning",
@@ -79,6 +81,10 @@ def test_importing_hardware_modules_does_not_import_unitree_sdk() -> None:
     assert after == before
 
 
+def test_terminal_status_is_throttled_to_five_hz() -> None:
+    assert STATUS_PERIOD_S == 0.2
+
+
 def test_activation_requires_explicit_real_robot_gate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -86,6 +92,20 @@ def test_activation_requires_explicit_real_robot_gate(
     args = activation_args(real_robot=False)
     with pytest.raises(ValueError, match="real-robot"):
         validate_activation(args, hardware_config())
+
+
+def test_network_interface_override_is_not_exposed() -> None:
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(
+            [
+                "--config",
+                "hardware.json",
+                "--motion-profile",
+                "commissioning",
+                "--network-interface",
+                "eth0",
+            ]
+        )
 
 
 def test_activation_refuses_interactive_stdin(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -175,7 +195,7 @@ def hardware_config_file(path: Path) -> Path:
             "enabled": True,
             "facility_rules_reference": "facility-rules",
             "joint_map_confirmation": "unitree_g1_29dof_idl_indices_0_28",
-            "sdk_api_confirmation": "unitree_sdk2py_1.0.1_cyclonedds_0.10.2",
+            "sdk_api_confirmation": "facility_unitree_sdk2py_g1_lowcmd_api_cyclonedds_0.10.2",
             "command_scope_confirmation": (
                 "lowcmd_all_29_damping_right_arm_22_23_25_position_only"
             ),
@@ -203,8 +223,8 @@ def hardware_config_file(path: Path) -> Path:
 
 
 class FakeAdapter:
-    def __init__(self, config, interface, *, release_fails: bool = False) -> None:
-        del config, interface
+    def __init__(self, config, *, release_fails: bool = False) -> None:
+        del config
         self.calls: list[str] = []
         self.release_fails = release_fails
 
@@ -238,28 +258,26 @@ def centered_goal() -> ArmGoal:
 def test_onboard_eof_releases_fake_adapter_before_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fake = FakeAdapter(None, None)
+    fake = FakeAdapter(None)
     monkeypatch.setattr("summit_signal.onboard.sys.stdin", PipeStdin(centered_goal().encode()))
     args = activation_args(
         config=hardware_config_file(tmp_path / "hardware.json"),
-        network_interface="eth0",
     )
 
-    assert run(args, adapter_factory=lambda config, interface: fake) == 0
+    assert run(args, adapter_factory=lambda config: fake) == 0
     assert fake.calls == ["connect", "wait_for_state", "release"]
 
 
 def test_onboard_reports_release_failure_as_nonzero(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fake = FakeAdapter(None, None, release_fails=True)
+    fake = FakeAdapter(None, release_fails=True)
     monkeypatch.setattr("summit_signal.onboard.sys.stdin", PipeStdin(centered_goal().encode()))
     args = activation_args(
         config=hardware_config_file(tmp_path / "hardware.json"),
-        network_interface="eth0",
     )
 
-    assert run(args, adapter_factory=lambda config, interface: fake) == 3
+    assert run(args, adapter_factory=lambda config: fake) == 3
     assert fake.calls[-1] == "release"
 
 
@@ -280,11 +298,10 @@ def test_invalid_initial_goal_is_rejected_before_adapter_construction(
     monkeypatch.setattr("summit_signal.onboard.sys.stdin", PipeStdin(unsafe.encode()))
     args = activation_args(
         config=hardware_config_file(tmp_path / "hardware.json"),
-        network_interface="eth0",
     )
 
-    def forbidden_factory(config, interface):
-        del config, interface
+    def forbidden_factory(config):
+        del config
         raise AssertionError("adapter must not be constructed")
 
     with pytest.raises(ValueError, match="centered"):

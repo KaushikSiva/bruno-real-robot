@@ -6,33 +6,54 @@ fail() {
   exit 2
 }
 
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+project_root="$(cd -- "${script_dir}/.." && pwd)"
+
 if [[ -z "${CONDA_PREFIX:-}" || -z "${CONDA_DEFAULT_ENV:-}" ]]; then
-  fail "activate your disposable conda environment first"
+  environment_name="${1:-}"
+  [[ "${environment_name}" =~ ^[A-Za-z][A-Za-z0-9_-]{2,31}$ ]] ||
+    fail "usage outside an active env: $0 YOURNAME-g1"
+  [[ -z "${SUMMIT_SIGNAL_CONDA_REEXEC:-}" ]] ||
+    fail "conda run did not activate the requested environment"
+  command -v conda >/dev/null || fail "conda is unavailable"
+  exec env SUMMIT_SIGNAL_CONDA_REEXEC=1 conda run -n "${environment_name}" \
+    --no-capture-output "${script_dir}/jetson_preflight.sh"
 fi
+[[ $# -eq 0 ]] || fail "do not pass an environment name from inside an active environment"
 if [[ "${CONDA_DEFAULT_ENV}" == "base" ]]; then
   fail "the shared base environment is forbidden; activate your own environment"
 fi
 
-python -c 'import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 10) else 2)' ||
-  fail "the active conda environment must use Python 3.10"
-python -c 'import cyclonedds, unitree_sdk2py' ||
-  fail "cyclonedds or the facility-provided Unitree SDK is unavailable"
+export PYTHONPATH="${project_root}/src${PYTHONPATH:+:${PYTHONPATH}}"
+python -m summit_signal.sdk_probe || fail "the disposable SDK environment is incompatible"
 command -v robot >/dev/null || fail "the facility robot helper is unavailable"
+
+utc_hour_text="$(date -u +%H)" || fail "cannot read the current UTC time"
+utc_hour=$((10#${utc_hour_text}))
+if ((utc_hour < 2 || utc_hour >= 9)); then
+  fail "outside staffed hours (10:00-17:00 MYT / 02:00-09:00 UTC); current time: $(date -u '+%Y-%m-%d %H:%M UTC')"
+fi
 
 echo "Current robot ownership/status:"
 robot status
 echo
+read -r -p "Type BUILTIN-OWNER-CONFIRMED only if the built-in service owns the robot: " confirmation
+[[ "${confirmation}" == "BUILTIN-OWNER-CONFIRMED" ]] ||
+  fail "built-in ownership was not confirmed; do not call robot zero"
+
 echo "Before continuing: confirm exclusive access, on-site hours, a live camera,"
 echo "and that the admin killswitch is ready."
-read -r -p "Type CAMERA-KILLSWITCH-READY to enter developer mode: " confirmation
-[[ "${confirmation}" == "CAMERA-KILLSWITCH-READY" ]] ||
-  fail "camera/killswitch confirmation was not supplied"
+read -r -p "Type EXCLUSIVE-CAMERA-KILLSWITCH-READY to enter developer mode: " confirmation
+[[ "${confirmation}" == "EXCLUSIVE-CAMERA-KILLSWITCH-READY" ]] ||
+  fail "exclusive access, camera, and killswitch readiness were not confirmed"
 
 restore_normal=true
 restore_on_failure() {
   if [[ "${restore_normal}" == "true" ]]; then
     echo "Preflight did not complete; restoring the built-in controller." >&2
-    robot normal || true
+    if ! robot normal; then
+      echo "CRITICAL: robot normal failed; contact the admin immediately." >&2
+    fi
   fi
 }
 trap restore_on_failure EXIT

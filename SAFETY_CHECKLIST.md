@@ -4,8 +4,11 @@ Stop at the first unchecked item. The robot administrator has final authority.
 
 ## Before connecting
 
+- [ ] Current time is within 10:00–17:00 MYT; the scripts enforce this from UTC.
 - [ ] `robot status` identifies the expected 29-DOF Unitree G1.
 - [ ] Personal Tailscale access and exclusive operator access are confirmed.
+- [ ] The disposable non-base environment uses Python 3.10, reports
+      `cyclonedds==0.10.2`, and imports the facility Unitree SDK.
 - [ ] The complete commissioning config uses only `rt/lowcmd`/`rt/lowstate`,
       all-29 damping shutdown, and the three right-arm position joints.
 - [ ] The checked-in target-slew and measured-speed trip values passed simulation
@@ -24,10 +27,12 @@ Stop at the first unchecked item. The robot administrator has final authority.
 - [ ] The live camera is open and the admin's independent killswitch is ready.
 - [ ] The gantry, cables, robot arm, and room are visibly clear.
 - [ ] The live safety camera is open and current.
-- [ ] `robot status` was checked, then `robot zero` was run before developer mode.
+- [ ] `robot status` shows the built-in service owns the robot.
+- [ ] `robot zero` was run only while that built-in service owned the robot, then
+      `robot dev-mode` was run.
 - [ ] `robot dev-mode` completed and the green face light is visible.
-- [ ] The Jetson reports valid 29-DOF position/velocity state and active 250 ms
-      command and low-state watchdogs.
+- [ ] The Jetson reports valid 29-DOF position/velocity state, a 250 ms goal
+      watchdog, and a 100 ms low-state watchdog.
 - [ ] L1 is released and both sticks are centered.
 
 ## Motion
@@ -41,7 +46,8 @@ Stop at the first unchecked item. The robot administrator has final authority.
 
 ## Shutdown
 
-- [ ] Press Options and observe `ALL-29 DAMPING SHUTDOWN COMPLETE`.
+- [ ] Stop with Options or R2+Circle and observe
+      `ALL-29 DAMPING SHUTDOWN COMPLETE`.
 - [ ] Confirm the final physical state through the live camera.
 - [ ] Confirm the wrapper ran `robot normal` and check `robot status`.
 - [ ] Confirm no controller process remains and remove copied data/configuration.

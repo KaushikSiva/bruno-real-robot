@@ -34,16 +34,10 @@ class UnitreeLowLevelAdapter:
     def __init__(
         self,
         config: HardwareConfig,
-        network_interface: str | None,
         *,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        if network_interface is not None and (
-            not network_interface or any(character.isspace() for character in network_interface)
-        ):
-            raise UnitreeAdapterError("network interface must be a non-empty interface name")
         self.config = config
-        self.network_interface = network_interface
         self._clock = clock
         self._lock = threading.Lock()
         self._state: RobotState | None = None
@@ -74,10 +68,9 @@ class UnitreeLowLevelAdapter:
                 "unitree_sdk2py is unavailable; use the facility-provided Jetson environment"
             ) from error
 
-        if self.network_interface is None:
-            ChannelFactoryInitialize(0)
-        else:
-            ChannelFactoryInitialize(0, self.network_interface)
+        # The facility owns network configuration. Use only its preconfigured
+        # local DDS default and expose no interface override.
+        ChannelFactoryInitialize(0)
         publisher = ChannelPublisher(self.config.command_topic, LowCmd_)
         publisher.Init()
         subscriber = ChannelSubscriber(self.config.state_topic, LowState_)

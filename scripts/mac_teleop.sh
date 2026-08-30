@@ -17,6 +17,8 @@ command -v open >/dev/null || fail "this operator script expects macOS"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd -- "${script_dir}/.." && pwd)"
+source "${script_dir}/lib/mac_python.sh"
+mac_python="$(select_mac_python)" || fail "MuJoCo requires a framework-enabled Python"
 calibration="${project_root}/runtime/dualsense-arm.json"
 simulation_marker="${project_root}/runtime/SIMULATION_PASSED"
 seconds="${TELEOP_SECONDS:-30}"
@@ -43,7 +45,7 @@ read -r -p "Type PREFLIGHT-GREEN-CAMERA-LIVE: " confirmation
 
 remote_command="cd bruno-real-robot && conda run -n ${environment_name} --no-capture-output ./scripts/run_onboard_session.sh --config runtime/hardware.json --motion-profile commissioning --real-robot --facility-rules-acknowledged --exclusive-access-confirmed --within-onsite-hours-confirmed --camera-confirmed --developer-mode-confirmed"
 
-uv run --project "${project_root}" --python 3.10 summit-signal-operator \
+uv run --project "${project_root}" --python "${mac_python}" summit-signal-operator \
   --calibration "${calibration}" \
   --joystick-index 0 \
   --seconds "${seconds}" |

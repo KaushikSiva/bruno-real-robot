@@ -1,9 +1,15 @@
 import sys
+from pathlib import Path
 
 import pytest
 
 from summit_signal.config import OperatorConfig
-from summit_signal.joystick import ArmJoystick, AxisCalibration, CalibrationProfile
+from summit_signal.joystick import (
+    ArmJoystick,
+    AxisCalibration,
+    CalibrationProfile,
+    capture_calibration,
+)
 
 
 class FakeDevice:
@@ -73,6 +79,7 @@ class FakeController:
 class FakeControllerModule:
     def __init__(self) -> None:
         self.controller = FakeController()
+        self.update_count = 0
 
     def init(self) -> None:
         return None
@@ -81,7 +88,7 @@ class FakeControllerModule:
         return None
 
     def update(self) -> None:
-        return None
+        self.update_count += 1
 
     def is_controller(self, index: int) -> bool:
         return index == 0
@@ -184,3 +191,80 @@ def test_r2_and_circle_chord_and_options_are_terminal_flags(fake_pygame) -> None
     assert goal.emergency_stop
     assert goal.quit
     joystick.close()
+
+
+def test_calibration_explicitly_updates_controller_without_a_video_event_loop(
+    fake_pygame, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    pygame, controllers = fake_pygame
+
+    class FakeClock:
+        now = 0.0
+
+        def monotonic(self) -> float:
+            self.now += 0.1
+            return self.now
+
+        def sleep(self, _seconds: float) -> None:
+            return None
+
+    clock = FakeClock()
+    axis_sample = 0
+
+    def get_axis(_index: int) -> float:
+        nonlocal axis_sample
+        if clock.now < 1.0:
+            return 0.0
+        axis_sample += 1
+        return -1.0 if axis_sample % 2 else 1.0
+
+    pygame.device.get_axis = get_axis
+    monkeypatch.setattr("summit_signal.joystick.time.monotonic", clock.monotonic)
+    monkeypatch.setattr("summit_signal.joystick.time.sleep", clock.sleep)
+    output = tmp_path / "calibration.json"
+
+    profile = capture_calibration(
+        config(),
+        output,
+        device_index=0,
+        sweep_seconds=2.0,
+        prompt=lambda _message: "",
+    )
+
+    assert output.is_file()
+    assert profile.device_name == "Mock DualSense"
+    assert controllers.update_count > 0
+    assert not controllers.controller.initialized
+    assert not pygame.device.initialized
+
+
+def test_calibration_reports_axes_that_only_move_to_one_side(
+    fake_pygame, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    pygame, _ = fake_pygame
+
+    class FakeClock:
+        now = 0.0
+
+        def monotonic(self) -> float:
+            self.now += 0.1
+            return self.now
+
+        def sleep(self, _seconds: float) -> None:
+            return None
+
+    clock = FakeClock()
+    pygame.device.get_axis = lambda _index: 0.0 if clock.now < 1.0 else 1.0
+    monkeypatch.setattr("summit_signal.joystick.time.monotonic", clock.monotonic)
+    monkeypatch.setattr("summit_signal.joystick.time.sleep", clock.sleep)
+
+    with pytest.raises(RuntimeError, match=r"axes did not move to both sides.*axis 0.*axis 1.*axis 3"):
+        capture_calibration(
+            config(),
+            tmp_path / "calibration.json",
+            device_index=0,
+            sweep_seconds=2.0,
+            prompt=lambda _message: "",
+        )
+
+    assert not pygame.device.initialized

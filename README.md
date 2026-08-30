@@ -45,7 +45,8 @@ cd bruno-real-robot
 ./scripts/mac_simulate.sh
 ```
 
-`mac_setup.sh` creates a local Python 3.10 uv environment, clones Unitree's
+`mac_setup.sh` creates a local uv environment using a framework-enabled macOS
+Python (3.10-3.13; Homebrew Python 3.12 is preferred), clones Unitree's
 official MuJoCo repository beside this checkout, pins commit
 `4134cb5dc7ff1ba7f484deda48b5274b58694519`, and runs a headless smoke test.
 `mac_simulate.sh` requires the real joystick gesture and verifies that a
@@ -171,7 +172,7 @@ shared configuration, the gantry, reboot state, cron, or autostart.
 
 | Machine | Script | Purpose |
 | --- | --- | --- |
-| Mac | `mac_setup.sh` | Python 3.10, pinned model, headless smoke test |
+| Mac | `mac_setup.sh` | Framework Python, pinned model, headless smoke test |
 | Mac | `mac_calibrate.sh` | Detect and calibrate the DualSense |
 | Mac | `mac_simulate.sh` | Required gesture and R2+Circle rehearsal |
 | Jetson | `jetson_setup.sh NAME` | Disposable conda environment |
@@ -184,7 +185,7 @@ shared configuration, the gantry, reboot state, cron, or autostart.
 ## Verification for developers
 
 ```bash
-uv run --python 3.10 --extra test pytest -q
+uv run --extra test pytest -q
 uvx --from ruff==0.12.10 ruff check .
 uvx --from ruff==0.12.10 ruff format --check .
 bash -n scripts/*.sh

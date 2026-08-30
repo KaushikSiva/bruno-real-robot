@@ -61,7 +61,22 @@ def test_all_operator_scripts_are_executable_and_valid_bash() -> None:
         path = SCRIPTS / name
         assert path.is_file()
         assert os.access(path, os.X_OK)
+    for path in SCRIPTS.rglob("*.sh"):
         subprocess.run(["bash", "-n", str(path)], check=True)
+
+
+def test_mac_scripts_share_framework_python_selector() -> None:
+    for name in ("mac_setup.sh", "mac_calibrate.sh", "mac_simulate.sh", "mac_teleop.sh"):
+        source = script(name)
+        assert "lib/mac_python.sh" in source
+        assert 'mac_python="$(select_mac_python)"' in source
+        assert "--python 3.10" not in source
+
+
+def test_simulation_uses_short_local_confirmation() -> None:
+    simulation = script("mac_simulate.sh")
+    assert '"${confirmation}" == "S"' in simulation
+    assert "READY-FOR-SIM" not in simulation
 
 
 def test_preflight_enforces_time_owner_zero_dev_and_green_order() -> None:

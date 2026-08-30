@@ -8,6 +8,8 @@ fail() {
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd -- "${script_dir}/.." && pwd)"
+source "${script_dir}/lib/mac_python.sh"
+mac_python="$(select_mac_python)" || fail "MuJoCo requires a framework-enabled Python"
 model_repo="${SUMMIT_SIGNAL_MODEL_REPO:-${project_root}/../unitree_mujoco}"
 model_scene="${model_repo}/unitree_robots/g1/scene_29dof.xml"
 calibration="${project_root}/runtime/dualsense-arm.json"
@@ -20,10 +22,10 @@ initial_state="${project_root}/runtime/simulation-initial-state-${run_id}.json"
 
 echo "Test one tiny movement: hold L1, move only the left stick vertically, center it,"
 echo "release L1, verify Circle alone does not stop, then hold R2 and press Circle."
-read -r -p "Type READY-FOR-SIM to open MuJoCo: " confirmation
-[[ "${confirmation}" == "READY-FOR-SIM" ]] || fail "simulation was not confirmed"
+read -r -p "Enter S to open MuJoCo: " confirmation
+[[ "${confirmation}" == "S" ]] || fail "simulation was not confirmed"
 
-uv run --project "${project_root}" --python 3.10 mjpython -m summit_signal.simulator \
+uv run --project "${project_root}" --python "${mac_python}" mjpython -m summit_signal.simulator \
   --model "${model_scene}" \
   --hardware-config "${project_root}/config/hardware.example.json" \
   --calibration "${calibration}" \
@@ -32,7 +34,7 @@ uv run --project "${project_root}" --python 3.10 mjpython -m summit_signal.simul
   --record-initial-state "${initial_state}" \
   --seconds 30
 
-uv run --project "${project_root}" --python 3.10 python -c \
+uv run --project "${project_root}" --python "${mac_python}" python -c \
   'import json,sys; rows=[json.loads(line) for line in open(sys.argv[1], encoding="utf-8")]; raise SystemExit(0 if any(row["emergency_stop"] and row["connected"] for row in rows) else "R2+Circle was not observed; repeat simulation")' \
   "${goals}"
 

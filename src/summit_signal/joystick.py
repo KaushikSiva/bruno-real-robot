@@ -252,50 +252,87 @@ def capture_calibration(
         raise ValueError("calibration sweep must be between 2 and 30 seconds")
     import pygame
 
+    controller_api = importlib.import_module("pygame._sdl2.controller_old")
     pygame.joystick.init()
-    if device_index < 0 or device_index >= pygame.joystick.get_count():
-        pygame.joystick.quit()
-        raise RuntimeError("configured joystick index is unavailable")
-    device = pygame.joystick.Joystick(device_index)
-    device.init()
-    axes = sorted(set(config.command_axes))
+    controller_api.init()
+    device = None
+    controller = None
     try:
+        if device_index < 0 or device_index >= pygame.joystick.get_count():
+            raise RuntimeError("configured joystick index is unavailable")
+        if not controller_api.is_controller(device_index):
+            raise RuntimeError("selected SDL device is not a supported game controller")
+        device = pygame.joystick.Joystick(device_index)
+        device.init()
+        controller = controller_api.Controller(device_index)
+        axes = sorted(set(config.command_axes))
         if any(axis >= device.get_numaxes() for axis in axes):
             raise RuntimeError("controller does not expose every configured arm axis")
         prompt("Release both sticks to center, then press Enter.")
         samples: dict[int, list[float]] = {axis: [] for axis in axes}
         deadline = time.monotonic() + 0.75
         while time.monotonic() < deadline:
-            pygame.event.pump()
+            controller_api.update()
             for axis in axes:
                 samples[axis].append(float(device.get_axis(axis)))
             time.sleep(0.01)
         centers = {axis: sorted(values)[len(values) // 2] for axis, values in samples.items()}
         prompt(
-            "Press Enter, then move both sticks through their full range in circles for "
+            "Press Enter, then continuously rotate the LEFT stick through a full circle "
+            "and move the RIGHT stick fully up and down for "
             f"{sweep_seconds:g} seconds."
         )
         minima = centers.copy()
         maxima = centers.copy()
         deadline = time.monotonic() + sweep_seconds
         while time.monotonic() < deadline:
-            pygame.event.pump()
+            controller_api.update()
             for axis in axes:
                 raw = float(device.get_axis(axis))
                 minima[axis] = min(minima[axis], raw)
                 maxima[axis] = max(maxima[axis], raw)
             time.sleep(0.01)
+        one_sided_axes = [
+            axis for axis in axes if not minima[axis] < centers[axis] < maxima[axis]
+        ]
+        if one_sided_axes:
+            details = "; ".join(
+                f"axis {axis}: min={minima[axis]:.3f}, "
+                f"center={centers[axis]:.3f}, max={maxima[axis]:.3f}"
+                for axis in one_sided_axes
+            )
+            raise RuntimeError(
+                "these joystick axes did not move to both sides of center: "
+                f"{details}; repeat calibration and follow the full-range prompt"
+            )
         calibrations = {
             axis: AxisCalibration(minima[axis], centers[axis], maxima[axis]) for axis in axes
         }
-        if any(
-            min(value.center - value.minimum, value.maximum - value.center) < 0.25
-            for value in calibrations.values()
-        ):
-            raise RuntimeError("one or more axes did not reach enough range; repeat calibration")
+        short_range_axes = [
+            axis
+            for axis, value in calibrations.items()
+            if min(value.center - value.minimum, value.maximum - value.center) < 0.25
+        ]
+        if short_range_axes:
+            raise RuntimeError(
+                f"joystick axes {short_range_axes} did not reach enough range; "
+                "repeat calibration and follow the full-range prompt"
+            )
         profile = CalibrationProfile(device.get_name(), calibrations)
         profile.save(output_path)
         return profile
     finally:
-        device.quit()
+        if controller is not None:
+            try:
+                if controller.get_init():
+                    controller.quit()
+            except pygame.error:
+                pass
+        if device is not None:
+            try:
+                if device.get_init():
+                    device.quit()
+            except pygame.error:
+                pass
+        controller_api.quit()
         pygame.joystick.quit()

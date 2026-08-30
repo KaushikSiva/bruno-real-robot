@@ -8,6 +8,8 @@ fail() {
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd -- "${script_dir}/.." && pwd)"
+source "${script_dir}/lib/mac_python.sh"
+mac_python="$(select_mac_python)" || fail "MuJoCo requires a framework-enabled Python"
 calibration="${project_root}/runtime/dualsense-arm.json"
 
 command -v uv >/dev/null || fail "run scripts/mac_setup.sh first"
@@ -18,8 +20,8 @@ if [[ -e "${calibration}" ]]; then
   [[ "${confirmation}" == "RECALIBRATE" ]] || fail "existing calibration left unchanged"
 fi
 
-uv run --project "${project_root}" --python 3.10 summit-signal-operator --list-joysticks
-uv run --project "${project_root}" --python 3.10 summit-signal-operator \
+uv run --project "${project_root}" --python "${mac_python}" summit-signal-operator --list-joysticks
+uv run --project "${project_root}" --python "${mac_python}" summit-signal-operator \
   --calibrate "${calibration}" \
   --joystick-index 0
 

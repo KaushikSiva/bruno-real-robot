@@ -11,11 +11,13 @@ command -v uv >/dev/null || fail "uv is required; install it on the Mac first"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd -- "${script_dir}/.." && pwd)"
+source "${script_dir}/lib/mac_python.sh"
+mac_python="$(select_mac_python)" || fail "MuJoCo requires a framework-enabled Python"
 model_repo="${SUMMIT_SIGNAL_MODEL_REPO:-${project_root}/../unitree_mujoco}"
 model_commit="4134cb5dc7ff1ba7f484deda48b5274b58694519"
 model_scene="${model_repo}/unitree_robots/g1/scene_29dof.xml"
 
-uv sync --project "${project_root}" --python 3.10 --extra simulation --extra test
+uv sync --project "${project_root}" --python "${mac_python}" --extra simulation --extra test
 
 if [[ ! -e "${model_repo}" ]]; then
   git clone https://github.com/unitreerobotics/unitree_mujoco.git "${model_repo}"
@@ -29,10 +31,11 @@ actual_commit="$(git -C "${model_repo}" rev-parse HEAD)"
   fail "Unitree MuJoCo must be pinned to ${model_commit}; found ${actual_commit}"
 [[ -f "${model_scene}" ]] || fail "missing pinned G1 scene: ${model_scene}"
 
-uv run --project "${project_root}" --python 3.10 python -m summit_signal.smoke \
+uv run --project "${project_root}" --python "${mac_python}" python -m summit_signal.smoke \
   --model "${model_scene}" \
   --hardware-config "${project_root}/config/hardware.example.json" \
   --seconds 3
 
-echo "MAC SETUP COMPLETE: Python 3.10 environment and pinned model smoke test passed."
+mac_python_version="$("${mac_python}" -c 'import platform; print(platform.python_version())')"
+echo "MAC SETUP COMPLETE: framework Python ${mac_python_version} and pinned model passed."
 echo "Next: ./scripts/mac_calibrate.sh"

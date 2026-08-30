@@ -91,6 +91,17 @@ def test_simulation_uses_short_local_confirmation() -> None:
     assert "READY-FOR-SIM" not in simulation
 
 
+def test_disposable_environment_defaults_to_kaushik() -> None:
+    for name in (
+        "jetson_setup.sh",
+        "jetson_prepare.sh",
+        "jetson_preflight.sh",
+        "jetson_cleanup.sh",
+    ):
+        assert 'environment_name="${1:-kaushik-g1}"' in script(name)
+    assert 'environment_name="${2:-kaushik-g1}"' in script("mac_teleop.sh")
+
+
 def test_preflight_enforces_time_owner_zero_dev_and_green_order() -> None:
     source = script("jetson_preflight.sh")
     assert "02:00-09:00 UTC" in source

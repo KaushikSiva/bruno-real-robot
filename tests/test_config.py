@@ -45,7 +45,8 @@ def write_config(path: Path, value: dict) -> Path:
 
 def test_packaged_operator_config_is_valid() -> None:
     config = OperatorConfig.load()
-    assert config.deadman_button == 4
+    assert config.deadman_button == 9
+    assert config.quit_button == 6
     assert config.emergency_stop_button == 1
     assert config.emergency_stop_modifier_axis == 5
     assert config.emergency_stop_modifier_threshold == 0.5

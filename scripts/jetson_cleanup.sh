@@ -6,9 +6,9 @@ fail() {
   exit 2
 }
 
-environment_name="${1:-}"
+environment_name="${1:-kaushik-g1}"
 [[ "${environment_name}" =~ ^[A-Za-z][A-Za-z0-9_-]{2,31}$ ]] ||
-  fail "usage: $0 YOURNAME-g1"
+  fail "usage: $0 [ENVIRONMENT_NAME] (default: kaushik-g1)"
 [[ "${environment_name}" != "base" ]] || fail "refusing to remove the shared base environment"
 [[ "${CONDA_DEFAULT_ENV:-}" != "${environment_name}" ]] ||
   fail "run 'conda deactivate' before cleanup"

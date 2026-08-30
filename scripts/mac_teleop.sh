@@ -7,10 +7,10 @@ fail() {
 }
 
 robot_host="${1:-}"
-environment_name="${2:-}"
-[[ "${robot_host}" =~ ^[A-Za-z0-9_.@:-]+$ ]] || fail "usage: $0 ROBOT_SSH_HOST YOURNAME-g1"
+environment_name="${2:-kaushik-g1}"
+[[ "${robot_host}" =~ ^[A-Za-z0-9_.@:-]+$ ]] || fail "usage: $0 ROBOT_SSH_HOST [ENVIRONMENT_NAME]"
 [[ "${environment_name}" =~ ^[A-Za-z][A-Za-z0-9_-]{2,31}$ ]] ||
-  fail "usage: $0 ROBOT_SSH_HOST YOURNAME-g1"
+  fail "usage: $0 ROBOT_SSH_HOST [ENVIRONMENT_NAME] (default: kaushik-g1)"
 command -v tailscale >/dev/null || fail "Tailscale CLI is unavailable"
 command -v ssh >/dev/null || fail "ssh is unavailable"
 command -v open >/dev/null || fail "this operator script expects macOS"

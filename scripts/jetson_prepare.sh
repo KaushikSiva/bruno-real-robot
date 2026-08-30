@@ -6,9 +6,9 @@ fail() {
   exit 2
 }
 
-environment_name="${1:-}"
+environment_name="${1:-kaushik-g1}"
 [[ "${environment_name}" =~ ^[A-Za-z][A-Za-z0-9_-]{2,31}$ ]] ||
-  fail "usage: $0 YOURNAME-g1"
+  fail "usage: $0 [ENVIRONMENT_NAME] (default: kaushik-g1)"
 command -v conda >/dev/null || fail "conda is unavailable"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,4 +29,4 @@ PYTHONPATH="${project_root}/src${PYTHONPATH:+:${PYTHONPATH}}" \
     --simulation-passed
 
 echo "JETSON PREPARATION COMPLETE."
-echo "Next: ./scripts/jetson_preflight.sh ${environment_name}"
+echo "Next: ./scripts/jetson_preflight.sh"

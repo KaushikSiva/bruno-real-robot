@@ -10,9 +10,9 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd -- "${script_dir}/.." && pwd)"
 
 if [[ -z "${CONDA_PREFIX:-}" || -z "${CONDA_DEFAULT_ENV:-}" ]]; then
-  environment_name="${1:-}"
+  environment_name="${1:-kaushik-g1}"
   [[ "${environment_name}" =~ ^[A-Za-z][A-Za-z0-9_-]{2,31}$ ]] ||
-    fail "usage outside an active env: $0 YOURNAME-g1"
+    fail "usage outside an active env: $0 [ENVIRONMENT_NAME] (default: kaushik-g1)"
   [[ -z "${SUMMIT_SIGNAL_CONDA_REEXEC:-}" ]] ||
     fail "conda run did not activate the requested environment"
   command -v conda >/dev/null || fail "conda is unavailable"

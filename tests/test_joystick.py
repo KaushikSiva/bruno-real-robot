@@ -124,11 +124,11 @@ def config() -> OperatorConfig:
         invert_shoulder_pitch=True,
         invert_shoulder_roll=False,
         invert_elbow=True,
-        deadman_button=4,
+        deadman_button=9,
         emergency_stop_button=1,
         emergency_stop_modifier_axis=5,
         emergency_stop_modifier_threshold=0.5,
-        quit_button=9,
+        quit_button=6,
         goal_hz=10.0,
     )
 
@@ -142,7 +142,7 @@ def calibration() -> CalibrationProfile:
 
 def test_arm_mapping_and_deadman(fake_pygame) -> None:
     pygame, _ = fake_pygame
-    pygame.device.buttons[4] = 1
+    pygame.device.buttons[9] = 1
     joystick = ArmJoystick(config(), device_index=0, calibration=calibration())
 
     goal = joystick.sample(session_id="session_1234", sequence=0, now=1.0)
@@ -150,6 +150,7 @@ def test_arm_mapping_and_deadman(fake_pygame) -> None:
     assert goal.axes == pytest.approx((4 / 9, 4 / 9, -(1.5 / 9)))
     assert goal.deadman
     assert not goal.emergency_stop
+    assert not goal.quit
     joystick.close()
 
 
@@ -183,7 +184,7 @@ def test_r2_and_circle_chord_and_options_are_terminal_flags(fake_pygame) -> None
     pygame, _ = fake_pygame
     pygame.device.buttons[1] = 1
     pygame.device.axes[5] = 1.0
-    pygame.device.buttons[9] = 1
+    pygame.device.buttons[6] = 1
     joystick = ArmJoystick(config(), device_index=0, calibration=calibration())
 
     goal = joystick.sample(session_id="session_1234", sequence=2, now=3.0)

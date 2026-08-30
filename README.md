@@ -74,12 +74,12 @@ Connect using your personal Tailscale SSH access, then:
 git clone https://github.com/KaushikSiva/bruno-real-robot.git
 cd bruno-real-robot
 
-./scripts/jetson_setup.sh YOURNAME-g1
-./scripts/jetson_prepare.sh YOURNAME-g1
+./scripts/jetson_setup.sh
+./scripts/jetson_prepare.sh
 ```
 
 On later sessions, use `git pull --ff-only` instead of cloning. Setup creates
-only your named conda environment with Python 3.10 and
+only your named `kaushik-g1` conda environment with Python 3.10 and
 `cyclonedds==0.10.2`. It verifies the exact CycloneDDS version and imports the
 facility-provided `unitree_sdk2py`; it never installs into system Python.
 
@@ -102,7 +102,7 @@ created the configuration.
 Keep the live camera open, then run:
 
 ```bash
-./scripts/jetson_preflight.sh YOURNAME-g1
+./scripts/jetson_preflight.sh
 ```
 
 The script refuses to continue unless all of these are true:
@@ -123,7 +123,7 @@ Do not start teleoperation unless `PREFLIGHT COMPLETE` is printed.
 From the Mac checkout:
 
 ```bash
-./scripts/mac_teleop.sh ROBOT_SSH_HOST YOURNAME-g1
+./scripts/mac_teleop.sh ROBOT_SSH_HOST
 ```
 
 The script checks Tailscale, prompts for the camera URL without saving it, opens
@@ -170,7 +170,7 @@ Then, after checking the robot on camera:
 
 ```bash
 cd bruno-real-robot
-./scripts/jetson_cleanup.sh YOURNAME-g1
+./scripts/jetson_cleanup.sh
 ```
 
 Cleanup refuses to proceed if the controller is still running or if the target
@@ -189,12 +189,12 @@ shared configuration, the gantry, reboot state, cron, or autostart.
 | Mac | `mac_setup.sh` | Framework Python, pinned model, headless smoke test |
 | Mac | `mac_calibrate.sh` | Detect and calibrate the DualSense |
 | Mac | `mac_simulate.sh` | Required gesture and R2+Circle rehearsal |
-| Jetson | `jetson_setup.sh NAME` | Disposable conda environment |
-| Jetson | `jetson_prepare.sh NAME` | Private activated commissioning config |
-| Jetson | `jetson_preflight.sh NAME` | Hours/status/zero/dev-mode/green checks |
-| Mac | `mac_teleop.sh HOST NAME` | Camera-confirmed SSH teleoperation |
+| Jetson | `jetson_setup.sh` | Disposable `kaushik-g1` conda environment |
+| Jetson | `jetson_prepare.sh` | Private activated commissioning config |
+| Jetson | `jetson_preflight.sh` | Hours/status/zero/dev-mode/green checks |
+| Mac | `mac_teleop.sh HOST` | Camera-confirmed SSH teleoperation |
 | Jetson | `stop_onboard.sh` | Validated SIGTERM from a second terminal |
-| Jetson | `jetson_cleanup.sh NAME` | Normal mode, status, env and runtime removal |
+| Jetson | `jetson_cleanup.sh` | Normal mode, status, env and runtime removal |
 
 ## Verification for developers
 

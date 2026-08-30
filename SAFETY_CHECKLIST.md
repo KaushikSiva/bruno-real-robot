@@ -56,7 +56,7 @@ Stop at the first unchecked item. The robot administrator has final authority.
 - [ ] Confirm the wrapper ran `robot normal` and check `robot status`.
 - [ ] The robot is left damped and resting in the harness, not holding a stance.
 - [ ] Confirm no controller process remains and remove copied data/configuration.
-- [ ] Run `./scripts/jetson_cleanup.sh YOURNAME-g1` and see `JETSON CLEANUP COMPLETE`;
+- [ ] Run `./scripts/jetson_cleanup.sh` and see `JETSON CLEANUP COMPLETE`;
       nothing installed this session may outlive it.
 - [ ] Delete recordings and scratch data you do not need. The Orin's disk is small
       and shared.

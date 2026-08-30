@@ -6,9 +6,9 @@ fail() {
   exit 2
 }
 
-environment_name="${1:-}"
+environment_name="${1:-kaushik-g1}"
 [[ "${environment_name}" =~ ^[A-Za-z][A-Za-z0-9_-]{2,31}$ ]] ||
-  fail "usage: $0 YOURNAME-g1 (3-32 safe characters, beginning with a letter)"
+  fail "usage: $0 [ENVIRONMENT_NAME] (default: kaushik-g1)"
 [[ "${environment_name}" != "base" ]] || fail "the shared base environment is forbidden"
 command -v conda >/dev/null || fail "conda is unavailable"
 # The facility builds and caches the cyclonedds wheel against this prefix. Without it
@@ -60,4 +60,4 @@ if compgen -G "${HOME}/.local/lib/python3.10/site-packages/cyclonedds*" >/dev/nu
 fi
 
 echo "JETSON SETUP COMPLETE: disposable environment ${environment_name} is ready."
-echo "Next: ./scripts/jetson_prepare.sh ${environment_name}"
+echo "Next: ./scripts/jetson_prepare.sh"

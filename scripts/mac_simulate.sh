@@ -40,4 +40,4 @@ uv run --project "${project_root}" --python "${mac_python}" python -c \
 
 printf '%s\n' "simulation_passed_at=${run_id}" >"${project_root}/runtime/SIMULATION_PASSED"
 echo "SIMULATION COMPLETE: R2+Circle and the commissioning gesture were recorded."
-echo "Next on Jetson: ./scripts/jetson_setup.sh YOURNAME-g1"
+echo "Next on Jetson: ./scripts/jetson_setup.sh"

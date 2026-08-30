@@ -12,8 +12,8 @@
     "elbow": true
   },
   "buttons": {
-    "deadman": 4,
-    "quit": 9
+    "deadman": 9,
+    "quit": 6
   },
   "emergency_stop_chord": {
     "button": 1,

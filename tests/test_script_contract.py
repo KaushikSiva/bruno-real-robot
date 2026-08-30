@@ -177,11 +177,12 @@ PROHIBITED_COMMANDS = (
 
 
 def test_scripts_do_not_offer_network_or_persistent_service_changes() -> None:
-    # Every shell script ships to the robot, not only the ones named above, so a
-    # newly added script is covered by this contract automatically.
-    shell_scripts = sorted(path.name for path in SCRIPTS.glob("*.sh"))
-    assert REQUIRED_SCRIPTS.issubset(set(shell_scripts))
-    combined = "\n".join(script(name) for name in shell_scripts)
+    # Every shell script ships to the robot, not only the ones named above, and
+    # helpers live in subdirectories such as scripts/lib/, so a newly added script
+    # anywhere under scripts/ is covered by this contract automatically.
+    shell_scripts = sorted(SCRIPTS.rglob("*.sh"))
+    assert REQUIRED_SCRIPTS.issubset({path.name for path in shell_scripts})
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in shell_scripts)
 
     for command in PROHIBITED_COMMANDS:
         assert command not in combined, f"prohibited command in scripts/: {command}"

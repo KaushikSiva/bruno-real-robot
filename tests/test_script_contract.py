@@ -100,19 +100,43 @@ def test_session_and_cleanup_require_normal_mode_status_and_disposable_env() -> 
     assert cleanup.index("robot normal") < cleanup.index("conda env remove")
 
 
+# Reading these to confirm nothing was left behind is required; creating or editing
+# an entry is what must never happen. Any mention must be one of these exact forms.
+READ_ONLY_PERSISTENCE_CALLS = (
+    "command -v crontab",
+    "crontab -l",
+    "command -v systemctl",
+    "systemctl --user list-unit-files",
+)
+
+
 def test_scripts_do_not_offer_network_or_persistent_service_changes() -> None:
     combined = "\n".join(script(name) for name in REQUIRED_SCRIPTS)
     prohibited = (
         "--network-interface",
         "netplan",
-        "systemctl",
+        "systemctl enable",
+        "systemctl start",
+        "systemctl --user enable",
         "tailscale up",
         "reboot",
         "shutdown -h",
-        "crontab",
+        "crontab -e",
+        "crontab -r",
     )
     for command in prohibited:
         assert command not in combined
+
+    # Belt and braces: every crontab/systemctl mention is a read-only inspection.
+    for line in combined.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        for tool in ("crontab", "systemctl"):
+            if tool in stripped:
+                assert any(call in stripped for call in READ_ONLY_PERSISTENCE_CALLS), (
+                    f"non-read-only {tool} usage: {stripped}"
+                )
 
 
 def test_preflight_happy_path_calls_robot_commands_in_safe_order(tmp_path: Path) -> None:

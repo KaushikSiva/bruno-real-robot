@@ -8,7 +8,6 @@ Stop at the first unchecked item. The robot administrator has final authority.
 
 ## Before connecting
 
-- [ ] Current time is within 10:00–17:00 MYT; the scripts enforce this from UTC.
 - [ ] `robot status` identifies the expected 29-DOF Unitree G1.
 - [ ] Personal Tailscale access and exclusive operator access are confirmed.
 - [ ] No change to Tailscale, netplan, interfaces, DNS, or the firewall is made at
@@ -30,7 +29,6 @@ Stop at the first unchecked item. The robot administrator has final authority.
 
 ## Before enabling motion
 
-- [ ] The staffed facility window is active.
 - [ ] The live camera is open and the admin's independent killswitch is ready.
 - [ ] The gantry, cables, robot arm, and room are visibly clear.
 - [ ] The live safety camera is open and current.

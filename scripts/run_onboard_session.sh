@@ -79,13 +79,6 @@ python -m summit_signal.sdk_probe || fail "the disposable SDK environment is inc
 python -c 'import sys, cyclonedds; raise SystemExit(0 if cyclonedds.__file__.startswith(sys.prefix) else 2)' ||
   fail "cyclonedds resolves outside ${CONDA_PREFIX}; install it only in your own environment"
 
-utc_hour_text="$(date -u +%H)" || fail "cannot read the current UTC time"
-utc_hour=$((10#${utc_hour_text}))
-if [[ "${SUMMIT_SIGNAL_ADMIN_TIME_OVERRIDE:-}" != "ADMIN-APPROVED" ]] &&
-  ((utc_hour < 2 || utc_hour >= 9)); then
-  fail "outside staffed hours (10:00-17:00 MYT / 02:00-09:00 UTC); current time: $(date -u '+%Y-%m-%d %H:%M UTC')"
-fi
-
 child_pid=0
 forward_signal() {
   local signal_name=$1

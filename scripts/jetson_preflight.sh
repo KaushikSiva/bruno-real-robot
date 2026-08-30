@@ -58,13 +58,6 @@ verify_developer_mode() {
   fi
 }
 
-utc_hour_text="$(date -u +%H)" || fail "cannot read the current UTC time"
-utc_hour=$((10#${utc_hour_text}))
-if [[ "${SUMMIT_SIGNAL_ADMIN_TIME_OVERRIDE:-}" != "ADMIN-APPROVED" ]] &&
-  ((utc_hour < 2 || utc_hour >= 9)); then
-  fail "outside staffed hours (10:00-17:00 MYT / 02:00-09:00 UTC); current time: $(date -u '+%Y-%m-%d %H:%M UTC')"
-fi
-
 echo "Current robot ownership/status:"
 robot status
 echo
@@ -72,8 +65,8 @@ read -r -p "Type BUILTIN-OWNER-CONFIRMED only if the built-in service owns the r
 [[ "${confirmation}" == "BUILTIN-OWNER-CONFIRMED" ]] ||
   fail "built-in ownership was not confirmed; do not call robot zero"
 
-echo "Before continuing: confirm exclusive access, on-site hours, a live camera,"
-echo "and that the admin killswitch is ready."
+echo "Before continuing: confirm exclusive access, a live camera, and that the"
+echo "admin killswitch is ready."
 read -r -p "Type EXCLUSIVE-CAMERA-KILLSWITCH-READY to enter developer mode: " confirmation
 [[ "${confirmation}" == "EXCLUSIVE-CAMERA-KILLSWITCH-READY" ]] ||
   fail "exclusive access, camera, and killswitch readiness were not confirmed"

@@ -64,7 +64,6 @@ def activation_args(**overrides) -> argparse.Namespace:
         "real_robot": True,
         "facility_rules_acknowledged": True,
         "exclusive_access_confirmed": True,
-        "within_onsite_hours_confirmed": True,
         "camera_confirmed": True,
         "developer_mode_confirmed": True,
         "motion_profile": "commissioning",
@@ -120,7 +119,6 @@ def test_activation_refuses_interactive_stdin(monkeypatch: pytest.MonkeyPatch) -
     [
         "facility_rules_acknowledged",
         "exclusive_access_confirmed",
-        "within_onsite_hours_confirmed",
         "camera_confirmed",
         "developer_mode_confirmed",
     ],

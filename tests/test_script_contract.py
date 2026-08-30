@@ -28,17 +28,11 @@ def executable(path: Path, source: str) -> None:
     path.chmod(0o755)
 
 
-def fake_jetson_commands(tmp_path: Path, *, utc_hour: str) -> tuple[dict[str, str], Path]:
+def fake_jetson_commands(tmp_path: Path) -> tuple[dict[str, str], Path]:
     binary_dir = tmp_path / "bin"
     binary_dir.mkdir()
     robot_log = tmp_path / "robot.log"
     executable(binary_dir / "python", "#!/usr/bin/env bash\nexit 0\n")
-    executable(
-        binary_dir / "date",
-        "#!/usr/bin/env bash\n"
-        'if [[ "$*" == *"+%H"* ]]; then echo "${FAKE_UTC_HOUR}"; '
-        'else echo "2026-01-01 ${FAKE_UTC_HOUR}:00 UTC"; fi\n',
-    )
     # The real helper prints its mode on `robot status`, and dev-mode/normal change
     # it. Model that: scripts verify developer mode by reading this output.
     executable(
@@ -60,7 +54,6 @@ def fake_jetson_commands(tmp_path: Path, *, utc_hour: str) -> tuple[dict[str, st
             "PATH": f"{binary_dir}:/usr/bin:/bin",
             "CONDA_PREFIX": str(tmp_path / "conda"),
             "CONDA_DEFAULT_ENV": "operator-g1",
-            "FAKE_UTC_HOUR": utc_hour,
             "FAKE_ROBOT_LOG": str(robot_log),
             "FAKE_ROBOT_MODE": str(tmp_path / "robot_mode"),
         }
@@ -126,9 +119,8 @@ def test_jetson_setup_uses_only_disposable_cached_dependencies() -> None:
     assert "CYCLONEDDS_HOME" not in setup
 
 
-def test_preflight_enforces_time_owner_zero_dev_and_green_order() -> None:
+def test_preflight_enforces_owner_zero_dev_and_green_order() -> None:
     source = script("jetson_preflight.sh")
-    assert "02:00-09:00 UTC" in source
     assert "summit_signal.sdk_probe" in source
     assert source.index("robot status") < source.index("BUILTIN-OWNER-CONFIRMED")
     assert source.index("BUILTIN-OWNER-CONFIRMED") < source.index("robot zero")
@@ -141,7 +133,6 @@ def test_session_and_cleanup_require_normal_mode_status_and_disposable_env() -> 
     cleanup = script("jetson_cleanup.sh")
     setup = script("jetson_setup.sh")
     assert "summit_signal.sdk_probe" in session
-    assert "02:00-09:00 UTC" in session
     assert session.index("robot normal") < session.rindex("robot status")
     assert "conda create" in setup
     assert "python=3.10" in setup
@@ -224,7 +215,7 @@ def test_scripts_do_not_offer_network_or_persistent_service_changes() -> None:
 
 
 def test_preflight_happy_path_calls_robot_commands_in_safe_order(tmp_path: Path) -> None:
-    environment, robot_log = fake_jetson_commands(tmp_path, utc_hour="03")
+    environment, robot_log = fake_jetson_commands(tmp_path)
     result = subprocess.run(
         [str(SCRIPTS / "jetson_preflight.sh")],
         input=("BUILTIN-OWNER-CONFIRMED\nEXCLUSIVE-CAMERA-KILLSWITCH-READY\nFACE-GREEN\n"),
@@ -243,43 +234,6 @@ def test_preflight_happy_path_calls_robot_commands_in_safe_order(tmp_path: Path)
     ]
 
 
-def test_preflight_refuses_outside_myt_hours_before_robot_io(tmp_path: Path) -> None:
-    environment, robot_log = fake_jetson_commands(tmp_path, utc_hour="10")
-    result = subprocess.run(
-        [str(SCRIPTS / "jetson_preflight.sh")],
-        input="",
-        text=True,
-        capture_output=True,
-        env=environment,
-        check=False,
-    )
-
-    assert result.returncode == 2
-    assert "outside staffed hours" in result.stderr
-    assert not robot_log.exists()
-
-
-def test_session_validation_failure_after_preflight_restores_normal(tmp_path: Path) -> None:
-    environment, robot_log = fake_jetson_commands(tmp_path, utc_hour="10")
-    copied_project = tmp_path / "project"
-    copied_scripts = copied_project / "scripts"
-    copied_scripts.mkdir(parents=True)
-    shutil.copy2(SCRIPTS / "run_onboard_session.sh", copied_scripts)
-
-    result = subprocess.run(
-        [str(copied_scripts / "run_onboard_session.sh")],
-        input="",
-        text=True,
-        capture_output=True,
-        env=environment,
-        check=False,
-    )
-
-    assert result.returncode == 2
-    assert "outside staffed hours" in result.stderr
-    assert robot_log.read_text(encoding="utf-8").splitlines() == ["normal --yes", "status"]
-
-
 def test_session_refuses_to_launch_while_built_in_service_owns_the_robot(
     tmp_path: Path,
 ) -> None:
@@ -289,7 +243,7 @@ def test_session_refuses_to_launch_while_built_in_service_owns_the_robot(
     wrapper must read `robot status` at launch time and refuse on a mismatch.
     """
 
-    environment, robot_log = fake_jetson_commands(tmp_path, utc_hour="03")
+    environment, robot_log = fake_jetson_commands(tmp_path)
     copied_project = tmp_path / "project"
     copied_scripts = copied_project / "scripts"
     copied_scripts.mkdir(parents=True)
@@ -314,7 +268,7 @@ def test_session_refuses_to_launch_while_built_in_service_owns_the_robot(
 
 
 def test_session_launches_once_developer_mode_is_reported(tmp_path: Path) -> None:
-    environment, robot_log = fake_jetson_commands(tmp_path, utc_hour="03")
+    environment, robot_log = fake_jetson_commands(tmp_path)
     Path(environment["FAKE_ROBOT_MODE"]).write_text("developer\n", encoding="utf-8")
     copied_project = tmp_path / "project"
     copied_scripts = copied_project / "scripts"

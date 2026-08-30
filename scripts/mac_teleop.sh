@@ -65,7 +65,7 @@ trap report_logs EXIT
 # Non-interactive SSH sessions do not source the Jetson's interactive shell
 # setup, so `conda` is not normally added to PATH. Use the installation path
 # verified during Jetson setup instead of relying on shell initialization.
-remote_command="cd bruno-real-robot && /home/unitree/miniconda3/bin/conda run -n ${environment_name} --no-capture-output ./scripts/run_onboard_session.sh --config runtime/hardware.json --motion-profile commissioning --real-robot --facility-rules-acknowledged --exclusive-access-confirmed --within-onsite-hours-confirmed --camera-confirmed --developer-mode-confirmed"
+remote_command="cd bruno-real-robot && /home/unitree/miniconda3/bin/conda run -n ${environment_name} --no-capture-output ./scripts/run_onboard_session.sh --config runtime/hardware.json --motion-profile commissioning --real-robot --facility-rules-acknowledged --exclusive-access-confirmed --camera-confirmed --developer-mode-confirmed"
 
 uv run --project "${project_root}" --python "${mac_python}" summit-signal-operator \
   --calibration "${calibration}" \

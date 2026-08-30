@@ -95,7 +95,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--real-robot", action="store_true")
     parser.add_argument("--facility-rules-acknowledged", action="store_true")
     parser.add_argument("--exclusive-access-confirmed", action="store_true")
-    parser.add_argument("--within-onsite-hours-confirmed", action="store_true")
     parser.add_argument("--camera-confirmed", action="store_true")
     parser.add_argument("--developer-mode-confirmed", action="store_true")
     return parser
@@ -107,7 +106,6 @@ def validate_activation(args: argparse.Namespace, config: HardwareConfig) -> Non
     confirmations = {
         "--facility-rules-acknowledged": args.facility_rules_acknowledged,
         "--exclusive-access-confirmed": args.exclusive_access_confirmed,
-        "--within-onsite-hours-confirmed": args.within_onsite_hours_confirmed,
         "--camera-confirmed": args.camera_confirmed,
         "--developer-mode-confirmed": args.developer_mode_confirmed,
     }

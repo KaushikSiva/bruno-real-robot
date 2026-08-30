@@ -110,7 +110,6 @@ The script refuses to continue unless all of these are true:
 
 - the disposable environment is active through `conda run`;
 - Python is exactly 3.10 and CycloneDDS is exactly 0.10.2;
-- current time is 10:00–17:00 MYT (02:00–09:00 UTC);
 - `robot status` was inspected and built-in ownership was explicitly confirmed;
 - exclusive access, live camera, and admin killswitch readiness were confirmed;
 - `robot zero` runs before `robot dev-mode`;

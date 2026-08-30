@@ -11,6 +11,9 @@ Stop at the first unchecked item. The robot administrator has final authority.
 - [ ] Current time is within 10:00–17:00 MYT; the scripts enforce this from UTC.
 - [ ] `robot status` identifies the expected 29-DOF Unitree G1.
 - [ ] Personal Tailscale access and exclusive operator access are confirmed.
+- [ ] No change to Tailscale, netplan, interfaces, DNS, or the firewall is made at
+      any point. Breaking connectivity locks out the admin too, and recovery needs
+      someone physically at the robot.
 - [ ] The disposable non-base environment uses Python 3.10, reports
       `cyclonedds==0.10.2`, and imports the facility Unitree SDK.
 - [ ] The complete commissioning config uses only `rt/lowcmd`/`rt/lowstate`,

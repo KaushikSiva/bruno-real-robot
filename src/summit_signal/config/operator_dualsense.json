@@ -1,0 +1,24 @@
+{
+  "schema_version": 2,
+  "deadzone": 0.1,
+  "axes": {
+    "shoulder_pitch": 1,
+    "shoulder_roll": 0,
+    "elbow": 3
+  },
+  "invert": {
+    "shoulder_pitch": true,
+    "shoulder_roll": false,
+    "elbow": true
+  },
+  "buttons": {
+    "deadman": 4,
+    "quit": 9
+  },
+  "emergency_stop_chord": {
+    "button": 1,
+    "modifier_axis": 5,
+    "modifier_threshold": 0.5
+  },
+  "goal_hz": 10.0
+}

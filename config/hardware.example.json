@@ -1,0 +1,30 @@
+{
+  "schema_version": 4,
+  "hardware_activation": {
+    "enabled": false,
+    "facility_rules_reference": "https://app.notion.com/p/Remote-Robot-Access-Unitree-G1-on-Gantry-3ca864e1a25381ba8589e3f0c3afc1b3",
+    "joint_map_confirmation": "unitree_g1_29dof_idl_indices_0_28",
+    "sdk_api_confirmation": "unitree_sdk2py_1.0.1_cyclonedds_0.10.2",
+    "command_scope_confirmation": "lowcmd_all_29_damping_right_arm_22_23_25_position_only"
+  },
+  "robot_variant": "g1_29dof",
+  "motion_profile": "commissioning",
+  "topics": {
+    "command": "rt/lowcmd",
+    "state": "rt/lowstate"
+  },
+  "shutdown_strategy": "lowcmd_all_29_joint_damping",
+  "control": {
+    "control_hz": 500.0,
+    "watchdog_timeout_s": 0.25,
+    "initial_goal_timeout_s": 10.0,
+    "low_state_timeout_s": 0.1,
+    "max_target_velocity_rad_s": 0.1,
+    "max_measured_velocity_rad_s": 0.5,
+    "arm_kp": 40.0,
+    "arm_kd": 1.0,
+    "all_joint_damping_kd": 8.0,
+    "enable_gain_ramp_s": 3.0,
+    "shutdown_damping_duration_s": 1.0
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/unitreerobotics/unitree_mujoco.git",
+  "commit": "4134cb5dc7ff1ba7f484deda48b5274b58694519",
+  "scene": "unitree_robots/g1/scene_29dof.xml",
+  "model": "unitree_robots/g1/g1_29dof.xml",
+  "model_sha256": "423e28bd718b19f7a65cda539b6f794ddbb268b4b9bdbd85f4bd982b30729617"
+}

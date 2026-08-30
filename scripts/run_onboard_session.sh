@@ -54,7 +54,7 @@ restore_normal() {
   trap - EXIT INT TERM HUP
   rm -f -- "${pid_file}"
   echo "Restoring the facility's built-in controller with: robot normal" >&2
-  if ! robot normal; then
+  if ! robot normal --yes; then
     echo "CRITICAL: robot normal failed; contact the admin immediately." >&2
     exit 4
   fi
@@ -81,7 +81,8 @@ python -c 'import sys, cyclonedds; raise SystemExit(0 if cyclonedds.__file__.sta
 
 utc_hour_text="$(date -u +%H)" || fail "cannot read the current UTC time"
 utc_hour=$((10#${utc_hour_text}))
-if ((utc_hour < 2 || utc_hour >= 9)); then
+if [[ "${SUMMIT_SIGNAL_ADMIN_TIME_OVERRIDE:-}" != "ADMIN-APPROVED" ]] &&
+  ((utc_hour < 2 || utc_hour >= 9)); then
   fail "outside staffed hours (10:00-17:00 MYT / 02:00-09:00 UTC); current time: $(date -u '+%Y-%m-%d %H:%M UTC')"
 fi
 

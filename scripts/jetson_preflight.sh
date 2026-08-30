@@ -60,7 +60,8 @@ verify_developer_mode() {
 
 utc_hour_text="$(date -u +%H)" || fail "cannot read the current UTC time"
 utc_hour=$((10#${utc_hour_text}))
-if ((utc_hour < 2 || utc_hour >= 9)); then
+if [[ "${SUMMIT_SIGNAL_ADMIN_TIME_OVERRIDE:-}" != "ADMIN-APPROVED" ]] &&
+  ((utc_hour < 2 || utc_hour >= 9)); then
   fail "outside staffed hours (10:00-17:00 MYT / 02:00-09:00 UTC); current time: $(date -u '+%Y-%m-%d %H:%M UTC')"
 fi
 
@@ -81,7 +82,7 @@ restore_normal=true
 restore_on_failure() {
   if [[ "${restore_normal}" == "true" ]]; then
     echo "Preflight did not complete; restoring the built-in controller." >&2
-    if ! robot normal; then
+    if ! robot normal --yes; then
       echo "CRITICAL: robot normal failed; contact the admin immediately." >&2
     fi
   fi

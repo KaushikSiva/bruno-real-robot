@@ -14,6 +14,7 @@ environment_name="${2:-kaushik-g1}"
 command -v tailscale >/dev/null || fail "Tailscale CLI is unavailable"
 command -v ssh >/dev/null || fail "ssh is unavailable"
 command -v open >/dev/null || fail "this operator script expects macOS"
+command -v tee >/dev/null || fail "tee is unavailable"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd -- "${script_dir}/.." && pwd)"
@@ -43,10 +44,30 @@ read -r -p "Type PREFLIGHT-GREEN-CAMERA-LIVE: " confirmation
 [[ "${confirmation}" == "PREFLIGHT-GREEN-CAMERA-LIVE" ]] ||
   fail "live camera and developer mode were not confirmed"
 
-remote_command="cd bruno-real-robot && conda run -n ${environment_name} --no-capture-output ./scripts/run_onboard_session.sh --config runtime/hardware.json --motion-profile commissioning --real-robot --facility-rules-acknowledged --exclusive-access-confirmed --within-onsite-hours-confirmed --camera-confirmed --developer-mode-confirmed"
+umask 077
+run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+log_dir="${project_root}/runtime/hardware-logs"
+goal_log="${log_dir}/goals-${run_id}.ndjson"
+session_log="${log_dir}/session-${run_id}.log"
+mkdir -p -- "${log_dir}"
+chmod 700 -- "${log_dir}"
+
+report_logs() {
+  echo "Private Mac logs saved:" >&2
+  echo "  goals:  ${goal_log}" >&2
+  echo "  session: ${session_log}" >&2
+}
+trap report_logs EXIT
+
+# Non-interactive SSH sessions do not source the Jetson's interactive shell
+# setup, so `conda` is not normally added to PATH. Use the installation path
+# verified during Jetson setup instead of relying on shell initialization.
+remote_command="cd bruno-real-robot && /home/unitree/miniconda3/bin/conda run -n ${environment_name} --no-capture-output ./scripts/run_onboard_session.sh --config runtime/hardware.json --motion-profile commissioning --real-robot --facility-rules-acknowledged --exclusive-access-confirmed --within-onsite-hours-confirmed --camera-confirmed --developer-mode-confirmed"
 
 uv run --project "${project_root}" --python "${mac_python}" summit-signal-operator \
   --calibration "${calibration}" \
   --joystick-index 0 \
   --seconds "${seconds}" |
-  ssh -T "${robot_host}" "${remote_command}"
+  tee "${goal_log}" |
+  ssh -T "${robot_host}" "${remote_command}" 2>&1 |
+  tee "${session_log}"

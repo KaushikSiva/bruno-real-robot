@@ -1,7 +1,10 @@
+import re
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
+from summit_signal import unitree_adapter
 from summit_signal.config import HardwareConfig
 from summit_signal.safety import ArmCommand, SafetyState
 from summit_signal.unitree_adapter import (
@@ -171,3 +174,23 @@ def test_adapter_rejects_nonfinite_target_even_if_called_outside_controller() ->
     command = ArmCommand(SafetyState.ACTIVE, True, (float("nan"), 0.0, 0.0))
     with pytest.raises(UnitreeAdapterError, match="unsafe target"):
         adapter.publish(command, now=1.0)
+
+
+def test_dds_initialization_never_selects_a_network_interface() -> None:
+    """The facility owns network configuration; DDS uses its preconfigured default.
+
+    Passing an interface here (the Tailscale one especially) changes how DDS binds
+    on a robot whose connectivity everyone shares, including the admin.
+    """
+
+    source = (
+        Path(unitree_adapter.__file__).read_text(encoding="utf-8")
+        if hasattr(unitree_adapter, "__file__")
+        else ""
+    )
+    calls = re.findall(r"ChannelFactoryInitialize\(([^)]*)\)", source)
+    assert calls, "expected a ChannelFactoryInitialize call site"
+    for arguments in calls:
+        assert arguments.strip() == "0", (
+            f"ChannelFactoryInitialize must be called as (0), got ({arguments})"
+        )

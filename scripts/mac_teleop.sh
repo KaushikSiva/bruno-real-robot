@@ -22,10 +22,13 @@ source "${script_dir}/lib/mac_python.sh"
 mac_python="$(select_mac_python)" || fail "MuJoCo requires a framework-enabled Python"
 calibration="${project_root}/runtime/dualsense-arm.json"
 simulation_marker="${project_root}/runtime/SIMULATION_PASSED"
+simulation_contract="commissioning-5deg-v1"
 seconds="${TELEOP_SECONDS:-30}"
 
 [[ -f "${calibration}" ]] || fail "run scripts/mac_calibrate.sh first"
 [[ -f "${simulation_marker}" ]] || fail "run scripts/mac_simulate.sh and pass R2+Circle first"
+grep -Fqx "profile=${simulation_contract}" "${simulation_marker}" ||
+  fail "the 5-degree profile has not passed simulation; rerun scripts/mac_simulate.sh"
 [[ "${seconds}" =~ ^[0-9]+$ ]] && ((seconds >= 5 && seconds <= 120)) ||
   fail "TELEOP_SECONDS must be an integer from 5 to 120"
 

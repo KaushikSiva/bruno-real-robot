@@ -96,8 +96,12 @@ def test_mac_teleop_persists_private_goal_and_session_logs() -> None:
 
 def test_simulation_uses_short_local_confirmation() -> None:
     simulation = script("mac_simulate.sh")
+    teleop = script("mac_teleop.sh")
     assert '"${confirmation}" == "S"' in simulation
     assert "READY-FOR-SIM" not in simulation
+    assert 'simulation_contract="commissioning-5deg-v1"' in simulation
+    assert 'simulation_contract="commissioning-5deg-v1"' in teleop
+    assert 'grep -Fqx "profile=${simulation_contract}"' in teleop
 
 
 def test_disposable_environment_defaults_to_kaushik() -> None:

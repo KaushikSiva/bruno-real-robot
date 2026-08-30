@@ -65,7 +65,7 @@ def test_deadman_release_disarms_without_ratcheting_session_neutral() -> None:
 
     safety.accept_goal(goal(2), received_at=10.2)
     rearmed = safety.step(now=10.22, positions=positions(0.4, 0.2, 1.0))
-    assert rearmed.target_positions == pytest.approx((0.395, 0.195, 1.005))
+    assert rearmed.target_positions == pytest.approx((0.395, 0.195, 0.995))
 
 
 def test_watchdog_latches_and_cannot_be_cleared_by_new_goal() -> None:

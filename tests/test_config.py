@@ -1,9 +1,10 @@
 import json
+import math
 from pathlib import Path
 
 import pytest
 
-from summit_signal.config import ConfigError, HardwareConfig, OperatorConfig
+from summit_signal.config import CONTROLLED_JOINTS, ConfigError, HardwareConfig, OperatorConfig
 
 
 def valid_hardware() -> dict:
@@ -63,7 +64,11 @@ def test_hardware_config_accepts_only_completed_activation_values(tmp_path: Path
     config = HardwareConfig.load(write_config(tmp_path / "hardware.json", valid_hardware()))
     assert config.hardware_enabled
     assert config.control_period_s == pytest.approx(0.002)
-    assert config.excursion_scale == pytest.approx(0.1)
+    assert config.excursion_scale == pytest.approx(0.5)
+    assert [
+        math.degrees(spec.max_excursion_rad * config.excursion_scale)
+        for spec in CONTROLLED_JOINTS
+    ] == pytest.approx([5.0, 5.0, 5.0])
 
 
 def test_facility_commissioning_profile_is_simulation_ready_but_hardware_locked() -> None:

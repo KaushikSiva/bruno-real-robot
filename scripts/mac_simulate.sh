@@ -16,11 +16,13 @@ calibration="${project_root}/runtime/dualsense-arm.json"
 run_id="$(date -u '+%Y%m%dT%H%M%SZ')"
 goals="${project_root}/runtime/simulation-goals-${run_id}.ndjson"
 initial_state="${project_root}/runtime/simulation-initial-state-${run_id}.json"
+simulation_contract="commissioning-5deg-v1"
 
 [[ -f "${calibration}" ]] || fail "run scripts/mac_calibrate.sh first"
 [[ -f "${model_scene}" ]] || fail "run scripts/mac_setup.sh first"
 
-echo "Test one tiny movement: hold L1, move only the left stick vertically, center it,"
+echo "Test one bounded 5-degree movement: hold L1, move only the left stick fully"
+echo "vertically for four seconds, center it,"
 echo "release L1, verify Circle alone does not stop, then hold R2 and press Circle."
 read -r -p "Enter S to open MuJoCo: " confirmation
 [[ "${confirmation}" == "S" ]] || fail "simulation was not confirmed"
@@ -38,6 +40,7 @@ uv run --project "${project_root}" --python "${mac_python}" python -c \
   'import json,sys; rows=[json.loads(line) for line in open(sys.argv[1], encoding="utf-8")]; raise SystemExit(0 if any(row["emergency_stop"] and row["connected"] for row in rows) else "R2+Circle was not observed; repeat simulation")' \
   "${goals}"
 
-printf '%s\n' "simulation_passed_at=${run_id}" >"${project_root}/runtime/SIMULATION_PASSED"
-echo "SIMULATION COMPLETE: R2+Circle and the commissioning gesture were recorded."
+printf 'profile=%s\npassed_at=%s\n' "${simulation_contract}" "${run_id}" \
+  >"${project_root}/runtime/SIMULATION_PASSED"
+echo "SIMULATION COMPLETE: R2+Circle and the 5-degree commissioning gesture were recorded."
 echo "Next on Jetson: ./scripts/jetson_setup.sh"

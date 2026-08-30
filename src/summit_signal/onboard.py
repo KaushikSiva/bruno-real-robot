@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import queue
 import signal
 import sys
@@ -14,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
-from summit_signal.config import ConfigError, HardwareConfig
+from summit_signal.config import CONTROLLED_JOINTS, ConfigError, HardwareConfig
 from summit_signal.protocol import MAX_GOAL_BYTES, ArmGoal, ProtocolError
 from summit_signal.safety import ArmSafetyController
 from summit_signal.unitree_adapter import UnitreeAdapterError, UnitreeLowLevelAdapter
@@ -205,9 +206,17 @@ def run(
             )
             gain_scale = adapter.publish(command, now=control_now)
             if control_now >= next_status_at:
+                measured_deg = tuple(
+                    math.degrees(state.positions[spec.dds_index]) for spec in CONTROLLED_JOINTS
+                )
+                target_deg = tuple(math.degrees(value) for value in command.target_positions)
                 print(
                     f"\r{command.state.value:<8} arm_gain={gain_scale:.3f} "
-                    f"sequence_age<={config.watchdog_timeout_s:.2f}s",
+                    f"sequence_age<={config.watchdog_timeout_s:.2f}s "
+                    "measured_deg=("
+                    f"{', '.join(f'{value:+.2f}' for value in measured_deg)}) "
+                    "target_deg=("
+                    f"{', '.join(f'{value:+.2f}' for value in target_deg)})",
                     end="",
                     file=sys.stderr,
                     flush=True,

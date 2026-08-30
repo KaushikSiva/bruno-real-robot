@@ -14,8 +14,8 @@ publishes `rt/lowcmd`. No balance, torque, or position loop crosses the tunnel.
 
 - Only right shoulder pitch (IDL 22), shoulder roll (23), and elbow (25)
   receive position gains.
-- The commissioning profile permits only 1 degree at each shoulder and 1.5
-  degrees at the elbow around the first measured pose.
+- The commissioning profile permits exactly 5 degrees at each controlled
+  shoulder and elbow joint around the first measured pose.
 - L1 is hold-to-run. R2+Circle requests emergency shutdown. Circle alone does
   nothing. Options is a normal clean exit.
 - Every other joint is damping-only: `tau=0`, `kp=0`, `kd=8`.
@@ -130,8 +130,8 @@ The script checks Tailscale, prompts for the camera URL without saving it, opens
 the camera, requires green-face/live-camera confirmation, and starts the SSH
 goal stream. The remote repository is expected at `~/bruno-real-robot`.
 
-For the first real test, repeat only the tiny vertical left-stick movement from
-simulation. Stop after one movement.
+For the first real test, repeat only the bounded 5-degree vertical left-stick
+movement from simulation. Stop after one movement.
 
 ## Stop options
 

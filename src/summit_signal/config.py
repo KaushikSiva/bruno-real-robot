@@ -50,7 +50,7 @@ CONTROLLED_JOINTS = (
         25,
         -1.0472,
         2.0944,
-        math.radians(15.0),
+        math.radians(10.0),
     ),
 )
 ALL_ARM_DDS_INDICES = tuple(range(15, 29))
@@ -90,7 +90,7 @@ EXPECTED_JOINT_MAP_CONFIRMATION = "unitree_g1_29dof_idl_indices_0_28"
 EXPECTED_SDK_API_CONFIRMATION = "facility_unitree_sdk2py_g1_lowcmd_api_cyclonedds_0.10.2"
 EXPECTED_COMMAND_SCOPE_CONFIRMATION = "lowcmd_all_29_damping_right_arm_22_23_25_position_only"
 SUPPORTED_SHUTDOWN_STRATEGY = "lowcmd_all_29_joint_damping"
-MOTION_PROFILE_SCALES = {"commissioning": 0.1, "demo": 1.0}
+MOTION_PROFILE_SCALES = {"commissioning": 0.5, "demo": 1.0}
 
 
 def _read_object(path: Path) -> dict[str, Any]:
